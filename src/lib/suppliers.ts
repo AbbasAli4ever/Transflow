@@ -1,0 +1,245 @@
+import { apiRequest } from "./api";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type SupplierStatus = "ACTIVE" | "INACTIVE";
+
+export interface ApiSupplier {
+  id: string;
+  tenantId: string;
+  name: string;
+  phone: string;
+  address: string;
+  notes: string;
+  status: SupplierStatus;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  currentBalance: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface SupplierBalance {
+  supplierId: string;
+  totalPurchases: number;
+  totalPayments: number;
+  totalReturns: number;
+  currentBalance: number;
+}
+
+export interface OpenDocument {
+  id: string;
+  documentNumber: string;
+  transactionDate: string;
+  totalAmount: number;
+  paidAmount: number;
+  outstanding: number;
+}
+
+export interface OpenDocumentsResponse {
+  supplierId: string;
+  supplierName: string;
+  totalOutstanding: number;
+  unappliedCredits: number;
+  netOutstanding: number;
+  documents: OpenDocument[];
+}
+
+export interface LedgerEntry {
+  date: string;
+  documentNumber: string;
+  type: string;
+  description: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+}
+
+export interface SupplierStatement {
+  supplierId: string;
+  supplierName: string;
+  dateFrom: string;
+  dateTo: string;
+  openingBalance: number;
+  closingBalance: number;
+  entries: LedgerEntry[];
+}
+
+// ─── Transaction Types ───────────────────────────────────────────────────────
+
+export type TransactionType =
+  | "PURCHASE"
+  | "SALE"
+  | "SUPPLIER_PAYMENT"
+  | "CUSTOMER_PAYMENT"
+  | "SUPPLIER_RETURN"
+  | "CUSTOMER_RETURN"
+  | "INTERNAL_TRANSFER"
+  | "ADJUSTMENT";
+
+export type TransactionStatus = "DRAFT" | "POSTED" | "VOIDED";
+
+export interface ApiTransaction {
+  id: string;
+  tenantId: string;
+  type: TransactionType;
+  status: TransactionStatus;
+  documentNumber: string | null;
+  transactionDate: string;
+  supplierId: string | null;
+  customerId: string | null;
+  subtotal: number;
+  discountTotal: number;
+  deliveryFee: number;
+  totalAmount: number;
+  paidNow: number;
+  notes: string | null;
+  postedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  supplier: { id: string; name: string } | null;
+  customer: { id: string; name: string } | null;
+}
+
+export interface ListTransactionsParams {
+  page?: number;
+  limit?: number;
+  type?: TransactionType;
+  status?: TransactionStatus;
+  supplierId?: string;
+  customerId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  sortBy?: "transactionDate" | "createdAt" | "totalAmount";
+  sortOrder?: "asc" | "desc";
+}
+
+export interface ListSuppliersParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: SupplierStatus | "ALL";
+  sortBy?: "name" | "createdAt";
+  sortOrder?: "asc" | "desc";
+}
+
+export interface CreateSupplierBody {
+  name: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+}
+
+export interface UpdateSupplierBody {
+  name?: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+}
+
+// ─── Currency Helper ──────────────────────────────────────────────────────────
+
+export function formatPKR(value: number): string {
+  return new Intl.NumberFormat("en-PK", {
+    style: "currency",
+    currency: "PKR",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+// ─── API Functions ────────────────────────────────────────────────────────────
+
+export function listSuppliers(
+  params: ListSuppliersParams = {}
+): Promise<PaginatedResponse<ApiSupplier>> {
+  const qs = new URLSearchParams();
+  if (params.page !== undefined) qs.set("page", String(params.page));
+  if (params.limit !== undefined) qs.set("limit", String(params.limit));
+  if (params.search) qs.set("search", params.search);
+  if (params.status && params.status !== "ALL") qs.set("status", params.status);
+  if (params.sortBy) qs.set("sortBy", params.sortBy);
+  if (params.sortOrder) qs.set("sortOrder", params.sortOrder);
+  const query = qs.toString();
+  return apiRequest<PaginatedResponse<ApiSupplier>>(
+    `/suppliers${query ? `?${query}` : ""}`
+  );
+}
+
+export function createSupplier(body: CreateSupplierBody): Promise<ApiSupplier> {
+  return apiRequest<ApiSupplier>("/suppliers", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateSupplier(
+  id: string,
+  body: UpdateSupplierBody
+): Promise<ApiSupplier> {
+  return apiRequest<ApiSupplier>(`/suppliers/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function changeSupplierStatus(
+  id: string,
+  status: SupplierStatus,
+  reason?: string
+): Promise<ApiSupplier> {
+  return apiRequest<ApiSupplier>(`/suppliers/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, ...(reason ? { reason } : {}) }),
+  });
+}
+
+export function getSupplier(id: string): Promise<ApiSupplier> {
+  return apiRequest<ApiSupplier>(`/suppliers/${id}`);
+}
+
+export function getSupplierBalance(id: string): Promise<SupplierBalance> {
+  return apiRequest<SupplierBalance>(`/suppliers/${id}/balance`);
+}
+
+export function getSupplierOpenDocuments(id: string): Promise<OpenDocumentsResponse> {
+  return apiRequest<OpenDocumentsResponse>(`/suppliers/${id}/open-documents`);
+}
+
+export function getSupplierStatement(
+  id: string,
+  dateFrom: string,
+  dateTo: string
+): Promise<SupplierStatement> {
+  return apiRequest<SupplierStatement>(
+    `/reports/suppliers/${id}/statement?dateFrom=${dateFrom}&dateTo=${dateTo}`
+  );
+}
+
+export function listTransactions(
+  params: ListTransactionsParams = {}
+): Promise<PaginatedResponse<ApiTransaction>> {
+  const qs = new URLSearchParams();
+  if (params.page !== undefined) qs.set("page", String(params.page));
+  if (params.limit !== undefined) qs.set("limit", String(params.limit));
+  if (params.type) qs.set("type", params.type);
+  if (params.status) qs.set("status", params.status);
+  if (params.supplierId) qs.set("supplierId", params.supplierId);
+  if (params.customerId) qs.set("customerId", params.customerId);
+  if (params.dateFrom) qs.set("dateFrom", params.dateFrom);
+  if (params.dateTo) qs.set("dateTo", params.dateTo);
+  if (params.sortBy) qs.set("sortBy", params.sortBy);
+  if (params.sortOrder) qs.set("sortOrder", params.sortOrder);
+  const query = qs.toString();
+  return apiRequest<PaginatedResponse<ApiTransaction>>(
+    `/transactions${query ? `?${query}` : ""}`
+  );
+}

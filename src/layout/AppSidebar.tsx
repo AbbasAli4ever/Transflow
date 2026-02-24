@@ -16,7 +16,11 @@ import {
   TableIcon,
   UserCircleIcon,
 } from "../icons/index";
+<<<<<<< Updated upstream
 import { HiOutlineBuildingStorefront, HiOutlineUserGroup } from "react-icons/hi2";
+=======
+import { HiOutlineBuildingStorefront, HiOutlineUserGroup, HiOutlineCreditCard, HiOutlineArchiveBox } from "react-icons/hi2";
+>>>>>>> Stashed changes
 import SidebarWidget from "./SidebarWidget";
 
 type NavItem = {
@@ -43,6 +47,19 @@ const navItems: NavItem[] = [
     path: "/customer",
   },
   {
+<<<<<<< Updated upstream
+=======
+    icon: <HiOutlineCreditCard size={22} />,
+    name: "Payment Accounts",
+    path: "/payment-accounts",
+  },
+  {
+    icon: <HiOutlineArchiveBox size={22} />,
+    name: "Products",
+    path: "/products",
+  },
+  {
+>>>>>>> Stashed changes
     icon: <UserCircleIcon />,
     name: "User Profile",
     path: "/profile",

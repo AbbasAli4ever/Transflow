@@ -43,6 +43,11 @@ const navItems: NavItem[] = [
     path: "/customer",
   },
   {
+    icon: <HiOutlineCreditCard size={22} />,
+    name: "Payment Accounts",
+    path: "/payment-accounts",
+  },
+  {
     icon: <HiOutlineArchiveBox size={22} />,
     name: "Products",
     path: "/products",

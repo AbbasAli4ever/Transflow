@@ -33,6 +33,12 @@ import {
   changeVariantStatus,
 } from "@/lib/products";
 import { ApiError } from "@/lib/api";
+import {
+  ApiTransaction,
+  ApiTransactionLine,
+  TransactionStatus,
+  listTransactions,
+} from "@/lib/suppliers";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -590,6 +596,354 @@ function VariantStatusModal({
   );
 }
 
+// ─── Transaction Display Helpers ─────────────────────────────────────────────
+
+const TX_STATUS_COLORS: Record<string, string> = {
+  DRAFT: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+  POSTED: "bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400",
+  VOIDED: "bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400",
+};
+
+// ─── Purchase History Tab ─────────────────────────────────────────────────────
+
+function PurchaseHistoryTab({ productId }: { productId: string }) {
+  const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<TransactionStatus | "">("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
+    listTransactions({
+      productId,
+      type: "PURCHASE",
+      page,
+      limit: 10,
+      sortBy: "transactionDate",
+      sortOrder: "desc",
+      status: statusFilter || undefined,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setTransactions(res.data);
+        setMeta({ total: res.meta.total, totalPages: res.meta.totalPages });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const apiErr = err as ApiError;
+        setError(apiErr.message ?? "Failed to load purchase history.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId, page, statusFilter]);
+
+  return (
+    <div>
+      {/* Filter row */}
+      <div className="mb-4 flex items-center gap-3">
+        <select
+          value={statusFilter}
+          onChange={(e) => { setPage(1); setStatusFilter(e.target.value as TransactionStatus | ""); }}
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+        >
+          <option value="">All Statuses</option>
+          <option value="DRAFT">Draft</option>
+          <option value="POSTED">Posted</option>
+          <option value="VOIDED">Voided</option>
+        </select>
+      </div>
+
+      {error && (
+        <div className="mb-4 flex items-start gap-2 rounded-xl bg-error-50 px-4 py-3 text-sm text-error-600 dark:bg-error-500/10 dark:text-error-400">
+          <HiOutlineExclamationTriangle size={16} className="mt-0.5 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-3 animate-pulse">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-10 w-full rounded bg-gray-200 dark:bg-gray-700" />
+          ))}
+        </div>
+      ) : transactions.length === 0 ? (
+        <p className="py-10 text-center text-sm text-gray-400 dark:text-gray-500">
+          No purchase history found.
+        </p>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px]">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-gray-700">
+                  {["Date", "Document #", "Supplier", "Sizes", "Total Qty", "Amount", "Status"].map((col) => (
+                    <th
+                      key={col}
+                      className="pb-3 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 last:pr-0"
+                    >
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                {transactions.map((tx) => {
+                  const sizes =
+                    tx.transactionLines
+                      ?.map((l: ApiTransactionLine) => l.variant?.size)
+                      .filter(Boolean)
+                      .join(", ") ?? "—";
+                  const totalQty =
+                    tx.transactionLines?.reduce((s: number, l: ApiTransactionLine) => s + l.quantity, 0) ?? "—";
+                  return (
+                    <tr key={tx.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40">
+                      <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        {fmtDate(tx.transactionDate)}
+                      </td>
+                      <td className="py-3.5 pr-4 text-sm font-medium text-brand-500 whitespace-nowrap">
+                        {tx.documentNumber ?? "—"}
+                      </td>
+                      <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        {tx.supplier?.name ?? "—"}
+                      </td>
+                      <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300">
+                        {sizes}
+                      </td>
+                      <td className="py-3.5 pr-4 text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                        {totalQty}
+                      </td>
+                      <td className="py-3.5 pr-4 text-sm font-medium text-gray-800 dark:text-gray-100 whitespace-nowrap">
+                        {formatPKR(tx.totalAmount)}
+                      </td>
+                      <td className="py-3.5">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            TX_STATUS_COLORS[tx.status] ?? "bg-gray-100 text-gray-600"
+                          }`}
+                        >
+                          {tx.status.charAt(0) + tx.status.slice(1).toLowerCase()}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {meta.totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-700">
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                Showing{" "}
+                <span className="font-medium text-gray-600 dark:text-gray-300">{transactions.length}</span>{" "}
+                of{" "}
+                <span className="font-medium text-gray-600 dark:text-gray-300">{meta.total}</span>{" "}
+                records
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1 || isLoading}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  <HiOutlineChevronLeft size={15} />
+                </button>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Page {page} of {meta.totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
+                  disabled={page === meta.totalPages || isLoading}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  <HiOutlineChevronRight size={15} />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Sales History Tab ────────────────────────────────────────────────────────
+
+function SalesHistoryTab({ productId }: { productId: string }) {
+  const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<TransactionStatus | "">("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
+    listTransactions({
+      productId,
+      type: "SALE",
+      page,
+      limit: 10,
+      sortBy: "transactionDate",
+      sortOrder: "desc",
+      status: statusFilter || undefined,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setTransactions(res.data);
+        setMeta({ total: res.meta.total, totalPages: res.meta.totalPages });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const apiErr = err as ApiError;
+        setError(apiErr.message ?? "Failed to load sales history.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId, page, statusFilter]);
+
+  return (
+    <div>
+      {/* Filter row */}
+      <div className="mb-4 flex items-center gap-3">
+        <select
+          value={statusFilter}
+          onChange={(e) => { setPage(1); setStatusFilter(e.target.value as TransactionStatus | ""); }}
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+        >
+          <option value="">All Statuses</option>
+          <option value="DRAFT">Draft</option>
+          <option value="POSTED">Posted</option>
+          <option value="VOIDED">Voided</option>
+        </select>
+      </div>
+
+      {error && (
+        <div className="mb-4 flex items-start gap-2 rounded-xl bg-error-50 px-4 py-3 text-sm text-error-600 dark:bg-error-500/10 dark:text-error-400">
+          <HiOutlineExclamationTriangle size={16} className="mt-0.5 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-3 animate-pulse">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-10 w-full rounded bg-gray-200 dark:bg-gray-700" />
+          ))}
+        </div>
+      ) : transactions.length === 0 ? (
+        <p className="py-10 text-center text-sm text-gray-400 dark:text-gray-500">
+          No sales history found.
+        </p>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px]">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-gray-700">
+                  {["Date", "Document #", "Customer", "Sizes", "Total Qty", "Amount", "Status"].map((col) => (
+                    <th
+                      key={col}
+                      className="pb-3 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 last:pr-0"
+                    >
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                {transactions.map((tx) => {
+                  const sizes =
+                    tx.transactionLines
+                      ?.map((l: ApiTransactionLine) => l.variant?.size)
+                      .filter(Boolean)
+                      .join(", ") ?? "—";
+                  const totalQty =
+                    tx.transactionLines?.reduce((s: number, l: ApiTransactionLine) => s + l.quantity, 0) ?? "—";
+                  return (
+                    <tr key={tx.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40">
+                      <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        {fmtDate(tx.transactionDate)}
+                      </td>
+                      <td className="py-3.5 pr-4 text-sm font-medium text-brand-500 whitespace-nowrap">
+                        {tx.documentNumber ?? "—"}
+                      </td>
+                      <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        {tx.customer?.name ?? "—"}
+                      </td>
+                      <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300">
+                        {sizes}
+                      </td>
+                      <td className="py-3.5 pr-4 text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                        {totalQty}
+                      </td>
+                      <td className="py-3.5 pr-4 text-sm font-medium text-gray-800 dark:text-gray-100 whitespace-nowrap">
+                        {formatPKR(tx.totalAmount)}
+                      </td>
+                      <td className="py-3.5">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            TX_STATUS_COLORS[tx.status] ?? "bg-gray-100 text-gray-600"
+                          }`}
+                        >
+                          {tx.status.charAt(0) + tx.status.slice(1).toLowerCase()}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {meta.totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-700">
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                Showing{" "}
+                <span className="font-medium text-gray-600 dark:text-gray-300">{transactions.length}</span>{" "}
+                of{" "}
+                <span className="font-medium text-gray-600 dark:text-gray-300">{meta.total}</span>{" "}
+                records
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1 || isLoading}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  <HiOutlineChevronLeft size={15} />
+                </button>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Page {page} of {meta.totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
+                  disabled={page === meta.totalPages || isLoading}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  <HiOutlineChevronRight size={15} />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Stock Movements Section ──────────────────────────────────────────────────
 
 function MovementsSection({ productId }: { productId: string }) {
@@ -747,6 +1101,8 @@ export default function ProductDetailClient({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
 
+  const [activeTab, setActiveTab] = useState<"movements" | "purchases" | "sales">("movements");
+
   const [editOpen, setEditOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [addVariantOpen, setAddVariantOpen] = useState(false);
@@ -816,6 +1172,12 @@ export default function ProductDetailClient({ id }: { id: string }) {
     ? productStock.variants.reduce((sum, v) => sum + v.currentStock * v.avgCost, 0)
     : 0;
   const activeSizes = product.variants.filter((v) => v.status === "ACTIVE").length;
+
+  const HISTORY_TABS: { key: "movements" | "purchases" | "sales"; label: string }[] = [
+    { key: "movements", label: "Stock Movements" },
+    { key: "purchases", label: "Purchase History" },
+    { key: "sales", label: "Sales History" },
+  ];
 
   return (
     <div className="mx-auto w-full max-w-full space-y-6">
@@ -957,9 +1319,9 @@ export default function ProductDetailClient({ id }: { id: string }) {
                   const stockInfo = productStock?.variants.find(
                     (v) => v.variantId === variant.id
                   );
-                  const currentStock = stockInfo?.currentStock ?? variant.currentStock;
-                  const avgCost = stockInfo?.avgCost ?? variant.avgCost;
-                  const value = currentStock * avgCost;
+                  const currentStock = stockInfo?.currentStock ?? variant.currentStock ?? 0;
+                  const avgCost = stockInfo?.avgCost ?? variant.avgCost ?? 0;
+                  const value = (isNaN(currentStock) ? 0 : currentStock) * (isNaN(avgCost) ? 0 : avgCost);
                   return (
                     <tr
                       key={variant.id}
@@ -1016,16 +1378,27 @@ export default function ProductDetailClient({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* ── Stock Movements ── */}
+      {/* ── History Tabs ── */}
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-        <div className="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">Stock Movements</h2>
-          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-            History of all stock in and out transactions.
-          </p>
+        <div className="flex items-center gap-1 border-b border-gray-100 p-4 dark:border-gray-800">
+          {HISTORY_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                activeTab === tab.key
+                  ? "bg-brand-500 text-white shadow-sm"
+                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-        <div className="p-6">
-          <MovementsSection productId={id} />
+        <div className="p-5">
+          {activeTab === "movements" && <MovementsSection productId={id} />}
+          {activeTab === "purchases" && <PurchaseHistoryTab productId={id} />}
+          {activeTab === "sales" && <SalesHistoryTab productId={id} />}
         </div>
       </div>
 

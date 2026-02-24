@@ -48,11 +48,6 @@ const navItems: NavItem[] = [
     path: "/products",
   },
   {
-    icon: <HiOutlineCreditCard size={22} />,
-    name: "Payment Accounts",
-    path: "/payment-accounts",
-  },
-  {
     icon: <UserCircleIcon />,
     name: "User Profile",
     path: "/profile",

@@ -76,6 +76,25 @@ export interface SupplierStatement {
 
 // ─── Transaction Types ───────────────────────────────────────────────────────
 
+export interface ApiTransactionLine {
+  id: string;
+  variantId: string;
+  quantity: number;
+  unitPrice: number;
+  unitCost: number;
+  discountAmount: number;
+  lineTotal: number;
+  costTotal: number;
+  variant: {
+    id: string;
+    productId: string;
+    size: string;
+    sku: string | null;
+    avgCost: number;
+    status: string;
+  } | null;
+}
+
 export type TransactionType =
   | "PURCHASE"
   | "SALE"
@@ -108,6 +127,7 @@ export interface ApiTransaction {
   updatedAt: string;
   supplier: { id: string; name: string } | null;
   customer: { id: string; name: string } | null;
+  transactionLines?: ApiTransactionLine[];
 }
 
 export interface ListTransactionsParams {
@@ -117,6 +137,7 @@ export interface ListTransactionsParams {
   status?: TransactionStatus;
   supplierId?: string;
   customerId?: string;
+  productId?: string;
   dateFrom?: string;
   dateTo?: string;
   sortBy?: "transactionDate" | "createdAt" | "totalAmount";
@@ -234,6 +255,7 @@ export function listTransactions(
   if (params.status) qs.set("status", params.status);
   if (params.supplierId) qs.set("supplierId", params.supplierId);
   if (params.customerId) qs.set("customerId", params.customerId);
+  if (params.productId) qs.set("productId", params.productId);
   if (params.dateFrom) qs.set("dateFrom", params.dateFrom);
   if (params.dateTo) qs.set("dateTo", params.dateTo);
   if (params.sortBy) qs.set("sortBy", params.sortBy);

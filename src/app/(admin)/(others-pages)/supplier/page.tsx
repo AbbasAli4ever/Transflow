@@ -266,7 +266,7 @@ function SupplierDrawer({
               <Button variant="outline" size="sm" className="flex-1" onClick={onClose} type="button">
                 Cancel
               </Button>
-              <Button size="sm" className="flex-1" disabled={saving}>
+              <Button size="sm" className="flex-1" disabled={saving} type="submit">
                 {saving ? "Saving..." : isEdit ? "Save Changes" : "Save Supplier"}
               </Button>
             </div>

@@ -16,7 +16,7 @@ import {
   TableIcon,
   UserCircleIcon,
 } from "../icons/index";
-import { HiOutlineBuildingStorefront, HiOutlineUserGroup, HiOutlineCreditCard } from "react-icons/hi2";
+import { HiOutlineBuildingStorefront, HiOutlineUserGroup, HiOutlineCreditCard, HiOutlineArchiveBox } from "react-icons/hi2";
 import SidebarWidget from "./SidebarWidget";
 
 type NavItem = {
@@ -46,6 +46,11 @@ const navItems: NavItem[] = [
     icon: <HiOutlineCreditCard size={22} />,
     name: "Payment Accounts",
     path: "/payment-accounts",
+  },
+  {
+    icon: <HiOutlineArchiveBox size={22} />,
+    name: "Products",
+    path: "/products",
   },
   {
     icon: <UserCircleIcon />,

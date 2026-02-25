@@ -2,36 +2,29 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  HiOutlineBuildingStorefront,
+  HiOutlineArchiveBox,
   HiOutlinePlus,
   HiOutlineMagnifyingGlass,
   HiOutlineEye,
   HiOutlinePencilSquare,
   HiOutlineArrowsUpDown,
   HiOutlineXMark,
-  HiOutlineCheck,
-  HiOutlineChevronDown,
+  HiOutlineExclamationTriangle,
   HiOutlineChevronLeft,
   HiOutlineChevronRight,
-  HiOutlineExclamationTriangle,
 } from "react-icons/hi2";
 import Badge from "@/components/ui/badge/Badge";
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
 import {
-  ApiSupplier,
-  SupplierStatus,
-  formatPKR,
-  listSuppliers,
-  createSupplier,
-  updateSupplier,
-  changeSupplierStatus,
-} from "@/lib/suppliers";
+  ApiProduct,
+  ProductStatus,
+  listProducts,
+  createProduct,
+  updateProduct,
+  changeProductStatus,
+} from "@/lib/products";
 import { ApiError } from "@/lib/api";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type SortKey = "name" | "createdAt" | "balance";
 
 // ─── Small reusable action button ────────────────────────────────────────────
 
@@ -64,10 +57,19 @@ function SkeletonRow() {
         <div className="h-4 w-36 rounded bg-gray-200 dark:bg-gray-700" />
       </td>
       <td className="px-5 py-4">
-        <div className="h-4 w-28 rounded bg-gray-200 dark:bg-gray-700" />
+        <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
       </td>
       <td className="px-5 py-4">
         <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
+      </td>
+      <td className="px-5 py-4">
+        <div className="h-4 w-20 rounded bg-gray-200 dark:bg-gray-700" />
+      </td>
+      <td className="px-5 py-4">
+        <div className="h-4 w-16 rounded bg-gray-200 dark:bg-gray-700" />
+      </td>
+      <td className="px-5 py-4">
+        <div className="h-4 w-12 rounded bg-gray-200 dark:bg-gray-700" />
       </td>
       <td className="px-5 py-4">
         <div className="h-5 w-16 rounded-full bg-gray-200 dark:bg-gray-700" />
@@ -101,14 +103,14 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 
 interface DrawerForm {
   name: string;
-  phone: string;
-  address: string;
-  notes: string;
+  sku: string;
+  category: string;
+  unit: string;
 }
 
-const emptyForm: DrawerForm = { name: "", phone: "", address: "", notes: "" };
+const emptyForm: DrawerForm = { name: "", sku: "", category: "", unit: "" };
 
-function SupplierDrawer({
+function ProductDrawer({
   isOpen,
   onClose,
   onSaved,
@@ -117,13 +119,13 @@ function SupplierDrawer({
   isOpen: boolean;
   onClose: () => void;
   onSaved: () => void;
-  initial?: ApiSupplier | null;
+  initial?: ApiProduct | null;
 }) {
-  const fromInitial = (s: ApiSupplier): DrawerForm => ({
-    name: s.name,
-    phone: s.phone ?? "",
-    address: s.address ?? "",
-    notes: s.notes ?? "",
+  const fromInitial = (p: ApiProduct): DrawerForm => ({
+    name: p.name,
+    sku: p.sku ?? "",
+    category: p.category ?? "",
+    unit: p.unit ?? "",
   });
 
   const [form, setForm] = useState<DrawerForm>(initial ? fromInitial(initial) : emptyForm);
@@ -155,21 +157,27 @@ function SupplierDrawer({
     setError(null);
     setSaving(true);
     try {
+      const payload = {
+        name: form.name,
+        ...(form.sku.trim() ? { sku: form.sku.trim() } : {}),
+        ...(form.category.trim() ? { category: form.category.trim() } : {}),
+        ...(form.unit.trim() ? { unit: form.unit.trim() } : {}),
+      };
       if (initial) {
-        await updateSupplier(initial.id, form);
+        await updateProduct(initial.id, payload);
       } else {
-        await createSupplier(form);
+        await createProduct(payload);
       }
       onSaved();
       onClose();
     } catch (err) {
       const apiErr = err as ApiError;
       if (apiErr.statusCode === 409) {
-        setError("A supplier with this name already exists.");
+        setError("A product with this name already exists.");
       } else if (apiErr.errors?.length) {
         setError(apiErr.errors.map((e) => e.message).join(", "));
       } else {
-        setError(apiErr.message ?? "Failed to save supplier.");
+        setError(apiErr.message ?? "Failed to save product.");
       }
     } finally {
       setSaving(false);
@@ -194,10 +202,10 @@ function SupplierDrawer({
         <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5 dark:border-gray-800">
           <div>
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-              {isEdit ? "Edit Supplier" : "Add Supplier"}
+              {isEdit ? "Edit Product" : "Add Product"}
             </h2>
             <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-              {isEdit ? "Update supplier details." : "Create a new supplier."}
+              {isEdit ? "Update product details." : "Create a new product."}
             </p>
           </div>
           <button
@@ -222,41 +230,39 @@ function SupplierDrawer({
               <input
                 required
                 className={inputClass}
-                placeholder="Enter supplier name"
+                placeholder="Enter product name"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
             </div>
 
             <div>
-              <FieldLabel>Phone</FieldLabel>
+              <FieldLabel>SKU</FieldLabel>
               <input
                 className={inputClass}
-                placeholder="Enter phone number"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder="PRODUCT-001"
+                value={form.sku}
+                onChange={(e) => setForm({ ...form, sku: e.target.value })}
               />
             </div>
 
             <div>
-              <FieldLabel>Address</FieldLabel>
-              <textarea
-                rows={3}
-                className={`${inputClass} resize-none`}
-                placeholder="Street, city, state, postal code"
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
+              <FieldLabel>Category</FieldLabel>
+              <input
+                className={inputClass}
+                placeholder="Enter category"
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
               />
             </div>
 
             <div>
-              <FieldLabel>Notes</FieldLabel>
-              <textarea
-                rows={3}
-                className={`${inputClass} resize-none`}
-                placeholder="Internal notes"
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              <FieldLabel>Unit</FieldLabel>
+              <input
+                className={inputClass}
+                placeholder="piece"
+                value={form.unit}
+                onChange={(e) => setForm({ ...form, unit: e.target.value })}
               />
             </div>
           </div>
@@ -267,7 +273,7 @@ function SupplierDrawer({
                 Cancel
               </Button>
               <Button size="sm" className="flex-1" disabled={saving} type="submit">
-                {saving ? "Saving..." : isEdit ? "Save Changes" : "Save Supplier"}
+                {saving ? "Saving..." : isEdit ? "Save Changes" : "Save Product"}
               </Button>
             </div>
           </div>
@@ -280,32 +286,30 @@ function SupplierDrawer({
 // ─── Change Status Confirm Modal ──────────────────────────────────────────────
 
 function ChangeStatusModal({
-  supplier,
+  product,
   onClose,
   onSaved,
 }: {
-  supplier: ApiSupplier | null;
+  product: ApiProduct | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setReason("");
     setError(null);
-  }, [supplier]);
+  }, [product]);
 
-  if (!supplier) return null;
+  if (!product) return null;
 
-  const newStatus: SupplierStatus = supplier.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+  const newStatus: ProductStatus = product.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
 
   const handleConfirm = async () => {
     setError(null);
     setSaving(true);
     try {
-      await changeSupplierStatus(supplier.id, newStatus, reason.trim() || undefined);
+      await changeProductStatus(product.id, newStatus);
       onSaved();
       onClose();
     } catch (err) {
@@ -317,7 +321,7 @@ function ChangeStatusModal({
   };
 
   return (
-    <Modal isOpen={!!supplier} onClose={onClose} className="max-w-sm mx-4" showCloseButton={false}>
+    <Modal isOpen={!!product} onClose={onClose} className="max-w-sm mx-4" showCloseButton={false}>
       <div className="p-6">
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-warning-50 dark:bg-warning-500/10">
@@ -328,7 +332,7 @@ function ChangeStatusModal({
           </h3>
           <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
             Set{" "}
-            <span className="font-medium text-gray-700 dark:text-gray-200">{supplier.name}</span>{" "}
+            <span className="font-medium text-gray-700 dark:text-gray-200">{product.name}</span>{" "}
             to{" "}
             <span
               className={
@@ -350,16 +354,6 @@ function ChangeStatusModal({
           </div>
         )}
 
-        <div className="mb-4">
-          <FieldLabel>Reason (optional)</FieldLabel>
-          <input
-            className={inputClass}
-            placeholder="Enter reason for status change"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-        </div>
-
         <div className="flex justify-center gap-3">
           <Button variant="outline" size="sm" onClick={onClose} disabled={saving}>
             Cancel
@@ -375,60 +369,49 @@ function ChangeStatusModal({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function SuppliersPage() {
-  const [suppliers, setSuppliers] = useState<ApiSupplier[]>([]);
+export default function ProductsPage() {
+  const [products, setProducts] = useState<ApiProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ACTIVE" | "INACTIVE" | "All">("ACTIVE");
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortDropOpen, setSortDropOpen] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
-
-  const handleViewSupplier = (id: string) => {
-    sessionStorage.setItem("supplierId", id);
-    window.location.href = "/supplier/detail";
-  };
-
   const [addOpen, setAddOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<ApiSupplier | null>(null);
-  const [statusTarget, setStatusTarget] = useState<ApiSupplier | null>(null);
+  const [editTarget, setEditTarget] = useState<ApiProduct | null>(null);
+  const [statusTarget, setStatusTarget] = useState<ApiProduct | null>(null);
 
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const SORT_LABELS: Record<SortKey, string> = {
-    name: "Name",
-    createdAt: "Created Date",
-    balance: "Balance",
+  const handleViewProduct = (id: string) => {
+    sessionStorage.setItem("productId", id);
+    window.location.href = "/products/detail";
   };
 
-  const fetchSuppliers = useCallback(async () => {
+  const fetchProducts = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await listSuppliers({
+      const result = await listProducts({
         page,
         limit: 20,
         search: debouncedSearch || undefined,
-        status: statusFilter === "All" ? "ALL" : statusFilter,
-        sortBy: sortKey === "balance" ? "name" : sortKey,
-        sortOrder: "asc",
+        status: statusFilter === "ALL" ? "ALL" : statusFilter,
       });
-      setSuppliers(result.data);
+      setProducts(result.data);
       setMeta({ total: result.meta.total, totalPages: result.meta.totalPages });
     } catch (err) {
       const apiErr = err as ApiError;
-      setError(apiErr.message ?? "Failed to load suppliers.");
+      setError(apiErr.message ?? "Failed to load products.");
     } finally {
       setIsLoading(false);
     }
-  }, [page, debouncedSearch, statusFilter, sortKey]);
+  }, [page, debouncedSearch, statusFilter]);
 
   useEffect(() => {
-    fetchSuppliers();
-  }, [fetchSuppliers]);
+    fetchProducts();
+  }, [fetchProducts]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -439,7 +422,7 @@ export default function SuppliersPage() {
     }, 300);
   };
 
-  const handleStatusFilterChange = (f: "ACTIVE" | "INACTIVE" | "All") => {
+  const handleStatusFilterChange = (f: "ACTIVE" | "INACTIVE" | "ALL") => {
     setStatusFilter(f);
     setPage(1);
   };
@@ -450,17 +433,17 @@ export default function SuppliersPage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-500/10">
-            <HiOutlineBuildingStorefront size={22} className="text-brand-500" />
+            <HiOutlineArchiveBox size={22} className="text-brand-500" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Suppliers List</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Products</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Browse and manage all suppliers.
+              Browse and manage all products.
             </p>
           </div>
         </div>
         <Button size="sm" startIcon={<HiOutlinePlus size={16} />} onClick={() => setAddOpen(true)}>
-          Add Supplier
+          Add Product
         </Button>
       </div>
 
@@ -473,7 +456,7 @@ export default function SuppliersPage() {
           />
           <input
             type="text"
-            placeholder="Search by name or phone"
+            placeholder="Search by name, SKU or category"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-10 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
@@ -489,7 +472,7 @@ export default function SuppliersPage() {
         </div>
 
         <div className="flex rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-800">
-          {(["ACTIVE", "INACTIVE", "All"] as const).map((tab) => (
+          {(["ACTIVE", "INACTIVE", "ALL"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => handleStatusFilterChange(tab)}
@@ -502,42 +485,6 @@ export default function SuppliersPage() {
               {tab === "ACTIVE" ? "Active" : tab === "INACTIVE" ? "Inactive" : "All"}
             </button>
           ))}
-        </div>
-
-        <div className="relative">
-          <button
-            onClick={() => setSortDropOpen((v) => !v)}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-          >
-            <HiOutlineArrowsUpDown size={15} className="text-gray-400" />
-            Sort by: {SORT_LABELS[sortKey]}
-            <HiOutlineChevronDown
-              size={14}
-              className={`text-gray-400 transition-transform ${sortDropOpen ? "rotate-180" : ""}`}
-            />
-          </button>
-          {sortDropOpen && (
-            <div className="absolute right-0 z-50 mt-1.5 w-44 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-theme-md dark:border-gray-700 dark:bg-gray-800">
-              {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
-                <button
-                  key={key}
-                  onClick={() => {
-                    setSortKey(key);
-                    setPage(1);
-                    setSortDropOpen(false);
-                  }}
-                  className={`flex w-full items-center justify-between px-4 py-2.5 text-sm transition hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                    sortKey === key
-                      ? "font-semibold text-brand-500"
-                      : "text-gray-700 dark:text-gray-200"
-                  }`}
-                >
-                  {SORT_LABELS[key]}
-                  {sortKey === key && <HiOutlineCheck size={14} />}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
@@ -552,61 +499,74 @@ export default function SuppliersPage() {
       {/* Table */}
       <div className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[700px] whitespace-nowrap">
+          <table className="w-full min-w-[900px] whitespace-nowrap">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50">
-                {(["Name", "Phone", "Current Balance", "Status", "Actions"] as const).map((col) => (
-                  <th
-                    key={col}
-                    className={`px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 ${col === "Actions" ? "w-[180px]" : ""}`}
-                  >
-                    {col}
-                  </th>
-                ))}
+                {(["Name", "SKU", "Category", "Unit", "Total Stock", "Sizes", "Status", "Actions"] as const).map(
+                  (col) => (
+                    <th
+                      key={col}
+                      className={`px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 ${
+                        col === "Actions" ? "w-[200px]" : ""
+                      }`}
+                    >
+                      {col}
+                    </th>
+                  )
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
-              ) : suppliers.length === 0 ? (
+              ) : products.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={8}
                     className="py-16 text-center text-sm text-gray-400 dark:text-gray-500"
                   >
-                    No suppliers found.{" "}
+                    No products found.{" "}
                     {statusFilter === "ACTIVE" && !debouncedSearch
-                      ? "Add your first supplier."
+                      ? "Add your first product."
                       : "Try adjusting your filters."}
                   </td>
                 </tr>
               ) : (
-                suppliers.map((supplier) => (
+                products.map((product) => (
                   <tr
-                    key={supplier.id}
+                    key={product.id}
                     className="transition hover:bg-gray-50/60 dark:hover:bg-gray-800/40"
                   >
                     <td className="px-5 py-4">
                       <button
-                        onClick={() => handleViewSupplier(supplier.id)}
+                        onClick={() => handleViewProduct(product.id)}
                         className="text-sm font-semibold text-brand-500 transition hover:text-brand-600 hover:underline"
                       >
-                        {supplier.name}
+                        {product.name}
                       </button>
                     </td>
                     <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">
-                      {supplier.phone || "—"}
+                      {product.sku || "—"}
+                    </td>
+                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">
+                      {product.category || "—"}
+                    </td>
+                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">
+                      {product.unit || "—"}
                     </td>
                     <td className="px-5 py-4 text-sm font-medium text-gray-800 dark:text-gray-100">
-                      {formatPKR(supplier.currentBalance)}
+                      {product.totalStock}
+                    </td>
+                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">
+                      {product.variants.length}
                     </td>
                     <td className="px-5 py-4">
                       <Badge
                         variant="light"
                         size="sm"
-                        color={supplier.status === "ACTIVE" ? "success" : "warning"}
+                        color={product.status === "ACTIVE" ? "success" : "warning"}
                       >
-                        {supplier.status === "ACTIVE" ? "Active" : "Inactive"}
+                        {product.status === "ACTIVE" ? "Active" : "Inactive"}
                       </Badge>
                     </td>
                     <td className="px-5 py-4">
@@ -614,17 +574,17 @@ export default function SuppliersPage() {
                         <ActionButton
                           icon={<HiOutlineEye size={14} />}
                           label="View"
-                          onClick={() => handleViewSupplier(supplier.id)}
+                          onClick={() => handleViewProduct(product.id)}
                         />
                         <ActionButton
                           icon={<HiOutlinePencilSquare size={14} />}
                           label="Edit"
-                          onClick={() => setEditTarget(supplier)}
+                          onClick={() => setEditTarget(product)}
                         />
                         <ActionButton
                           icon={<HiOutlineArrowsUpDown size={14} />}
                           label="Status"
-                          onClick={() => setStatusTarget(supplier)}
+                          onClick={() => setStatusTarget(product)}
                         />
                       </div>
                     </td>
@@ -644,11 +604,11 @@ export default function SuppliersPage() {
               <>
                 Showing{" "}
                 <span className="font-medium text-gray-600 dark:text-gray-300">
-                  {suppliers.length}
+                  {products.length}
                 </span>{" "}
                 of{" "}
                 <span className="font-medium text-gray-600 dark:text-gray-300">{meta.total}</span>{" "}
-                suppliers
+                products
               </>
             )}
           </p>
@@ -677,26 +637,22 @@ export default function SuppliersPage() {
       </div>
 
       {/* Drawers / Modals */}
-      <SupplierDrawer
+      <ProductDrawer
         isOpen={addOpen}
         onClose={() => setAddOpen(false)}
-        onSaved={fetchSuppliers}
+        onSaved={fetchProducts}
       />
-      <SupplierDrawer
+      <ProductDrawer
         isOpen={!!editTarget}
         onClose={() => setEditTarget(null)}
-        onSaved={fetchSuppliers}
+        onSaved={fetchProducts}
         initial={editTarget}
       />
       <ChangeStatusModal
-        supplier={statusTarget}
+        product={statusTarget}
         onClose={() => setStatusTarget(null)}
-        onSaved={fetchSuppliers}
+        onSaved={fetchProducts}
       />
-
-      {sortDropOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setSortDropOpen(false)} />
-      )}
     </div>
   );
 }

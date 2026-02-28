@@ -361,7 +361,7 @@ export default function TransactionsPage() {
 
   const handleView = (id: string) => {
     sessionStorage.setItem("transactionId", id);
-    window.location.href = `/transactions/${id}`;
+    window.location.href = "/transactions/detail";
   };
 
   return (

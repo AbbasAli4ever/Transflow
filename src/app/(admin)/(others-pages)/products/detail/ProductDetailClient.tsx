@@ -10,7 +10,6 @@ import {
   HiOutlinePlus,
   HiOutlineXMark,
   HiOutlineExclamationTriangle,
-  HiOutlineChevronLeft,
   HiOutlineChevronRight,
 } from "react-icons/hi2";
 import Badge from "@/components/ui/badge/Badge";
@@ -20,12 +19,11 @@ import {
   ApiProduct,
   ApiProductVariant,
   ProductStock,
-  ProductMovement,
+  StockMovement,
   ProductStatus,
   formatPKR,
   getProduct,
   getProductStock,
-  getProductMovements,
   updateProduct,
   changeProductStatus,
   addVariant,
@@ -33,12 +31,6 @@ import {
   changeVariantStatus,
 } from "@/lib/products";
 import { ApiError } from "@/lib/api";
-import {
-  ApiTransaction,
-  ApiTransactionLine,
-  TransactionStatus,
-  listTransactions,
-} from "@/lib/suppliers";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -596,498 +588,111 @@ function VariantStatusModal({
   );
 }
 
-// ─── Transaction Display Helpers ─────────────────────────────────────────────
+// ─── History Not Available ─────────────────────────────────────────────────────
 
-const TX_STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
-  POSTED: "bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400",
-  VOIDED: "bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400",
-};
-
-// ─── Purchase History Tab ─────────────────────────────────────────────────────
-
-function PurchaseHistoryTab({ productId }: { productId: string }) {
-  const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
-  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
-  const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<TransactionStatus | "">("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setIsLoading(true);
-    setError(null);
-    listTransactions({
-      productId,
-      type: "PURCHASE",
-      page,
-      limit: 10,
-      sortBy: "transactionDate",
-      sortOrder: "desc",
-      status: statusFilter || undefined,
-    })
-      .then((res) => {
-        if (cancelled) return;
-        setTransactions(res.data);
-        setMeta({ total: res.meta.total, totalPages: res.meta.totalPages });
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        const apiErr = err as ApiError;
-        setError(apiErr.message ?? "Failed to load purchase history.");
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, page, statusFilter]);
+function HistoryNotAvailable({ type }: { type: "PURCHASE" | "SALE" }) {
+  const label = type === "PURCHASE" ? "Purchase History" : "Sale History";
 
   return (
-    <div>
-      {/* Filter row */}
-      <div className="mb-4 flex items-center gap-3">
-        <select
-          value={statusFilter}
-          onChange={(e) => { setPage(1); setStatusFilter(e.target.value as TransactionStatus | ""); }}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-        >
-          <option value="">All Statuses</option>
-          <option value="DRAFT">Draft</option>
-          <option value="POSTED">Posted</option>
-          <option value="VOIDED">Voided</option>
-        </select>
+    <div className="py-8 text-center space-y-3">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+        <HiOutlineArchiveBox size={22} className="text-gray-400 dark:text-gray-500" />
       </div>
-
-      {error && (
-        <div className="mb-4 flex items-start gap-2 rounded-xl bg-error-50 px-4 py-3 text-sm text-error-600 dark:bg-error-500/10 dark:text-error-400">
-          <HiOutlineExclamationTriangle size={16} className="mt-0.5 shrink-0" />
-          {error}
-        </div>
-      )}
-
-      {isLoading ? (
-        <div className="space-y-3 animate-pulse">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-10 w-full rounded bg-gray-200 dark:bg-gray-700" />
-          ))}
-        </div>
-      ) : transactions.length === 0 ? (
-        <p className="py-10 text-center text-sm text-gray-400 dark:text-gray-500">
-          No purchase history found.
-        </p>
-      ) : (
-        <>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-700">
-                  {["Date", "Document #", "Supplier", "Sizes", "Total Qty", "Amount", "Status"].map((col) => (
-                    <th
-                      key={col}
-                      className="pb-3 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 last:pr-0"
-                    >
-                      {col}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                {transactions.map((tx) => {
-                  const sizes =
-                    tx.transactionLines
-                      ?.map((l: ApiTransactionLine) => l.variant?.size)
-                      .filter(Boolean)
-                      .join(", ") ?? "—";
-                  const totalQty =
-                    tx.transactionLines?.reduce((s: number, l: ApiTransactionLine) => s + l.quantity, 0) ?? "—";
-                  return (
-                    <tr key={tx.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40">
-                      <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                        {fmtDate(tx.transactionDate)}
-                      </td>
-                      <td className="py-3.5 pr-4 text-sm font-medium text-brand-500 whitespace-nowrap">
-                        {tx.documentNumber ?? "—"}
-                      </td>
-                      <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                        {tx.supplier?.name ?? "—"}
-                      </td>
-                      <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300">
-                        {sizes}
-                      </td>
-                      <td className="py-3.5 pr-4 text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                        {totalQty}
-                      </td>
-                      <td className="py-3.5 pr-4 text-sm font-medium text-gray-800 dark:text-gray-100 whitespace-nowrap">
-                        {formatPKR(tx.totalAmount)}
-                      </td>
-                      <td className="py-3.5">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            TX_STATUS_COLORS[tx.status] ?? "bg-gray-100 text-gray-600"
-                          }`}
-                        >
-                          {tx.status.charAt(0) + tx.status.slice(1).toLowerCase()}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {meta.totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-700">
-              <p className="text-xs text-gray-400 dark:text-gray-500">
-                Showing{" "}
-                <span className="font-medium text-gray-600 dark:text-gray-300">{transactions.length}</span>{" "}
-                of{" "}
-                <span className="font-medium text-gray-600 dark:text-gray-300">{meta.total}</span>{" "}
-                records
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1 || isLoading}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  <HiOutlineChevronLeft size={15} />
-                </button>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Page {page} of {meta.totalPages}
-                </span>
-                <button
-                  onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-                  disabled={page === meta.totalPages || isLoading}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  <HiOutlineChevronRight size={15} />
-                </button>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-// ─── Sales History Tab ────────────────────────────────────────────────────────
-
-function SalesHistoryTab({ productId }: { productId: string }) {
-  const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
-  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
-  const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<TransactionStatus | "">("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setIsLoading(true);
-    setError(null);
-    listTransactions({
-      productId,
-      type: "SALE",
-      page,
-      limit: 10,
-      sortBy: "transactionDate",
-      sortOrder: "desc",
-      status: statusFilter || undefined,
-    })
-      .then((res) => {
-        if (cancelled) return;
-        setTransactions(res.data);
-        setMeta({ total: res.meta.total, totalPages: res.meta.totalPages });
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        const apiErr = err as ApiError;
-        setError(apiErr.message ?? "Failed to load sales history.");
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, page, statusFilter]);
-
-  return (
-    <div>
-      {/* Filter row */}
-      <div className="mb-4 flex items-center gap-3">
-        <select
-          value={statusFilter}
-          onChange={(e) => { setPage(1); setStatusFilter(e.target.value as TransactionStatus | ""); }}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-        >
-          <option value="">All Statuses</option>
-          <option value="DRAFT">Draft</option>
-          <option value="POSTED">Posted</option>
-          <option value="VOIDED">Voided</option>
-        </select>
-      </div>
-
-      {error && (
-        <div className="mb-4 flex items-start gap-2 rounded-xl bg-error-50 px-4 py-3 text-sm text-error-600 dark:bg-error-500/10 dark:text-error-400">
-          <HiOutlineExclamationTriangle size={16} className="mt-0.5 shrink-0" />
-          {error}
-        </div>
-      )}
-
-      {isLoading ? (
-        <div className="space-y-3 animate-pulse">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-10 w-full rounded bg-gray-200 dark:bg-gray-700" />
-          ))}
-        </div>
-      ) : transactions.length === 0 ? (
-        <p className="py-10 text-center text-sm text-gray-400 dark:text-gray-500">
-          No sales history found.
-        </p>
-      ) : (
-        <>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-700">
-                  {["Date", "Document #", "Customer", "Sizes", "Total Qty", "Amount", "Status"].map((col) => (
-                    <th
-                      key={col}
-                      className="pb-3 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 last:pr-0"
-                    >
-                      {col}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                {transactions.map((tx) => {
-                  const sizes =
-                    tx.transactionLines
-                      ?.map((l: ApiTransactionLine) => l.variant?.size)
-                      .filter(Boolean)
-                      .join(", ") ?? "—";
-                  const totalQty =
-                    tx.transactionLines?.reduce((s: number, l: ApiTransactionLine) => s + l.quantity, 0) ?? "—";
-                  return (
-                    <tr key={tx.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40">
-                      <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                        {fmtDate(tx.transactionDate)}
-                      </td>
-                      <td className="py-3.5 pr-4 text-sm font-medium text-brand-500 whitespace-nowrap">
-                        {tx.documentNumber ?? "—"}
-                      </td>
-                      <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                        {tx.customer?.name ?? "—"}
-                      </td>
-                      <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300">
-                        {sizes}
-                      </td>
-                      <td className="py-3.5 pr-4 text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                        {totalQty}
-                      </td>
-                      <td className="py-3.5 pr-4 text-sm font-medium text-gray-800 dark:text-gray-100 whitespace-nowrap">
-                        {formatPKR(tx.totalAmount)}
-                      </td>
-                      <td className="py-3.5">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            TX_STATUS_COLORS[tx.status] ?? "bg-gray-100 text-gray-600"
-                          }`}
-                        >
-                          {tx.status.charAt(0) + tx.status.slice(1).toLowerCase()}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {meta.totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-700">
-              <p className="text-xs text-gray-400 dark:text-gray-500">
-                Showing{" "}
-                <span className="font-medium text-gray-600 dark:text-gray-300">{transactions.length}</span>{" "}
-                of{" "}
-                <span className="font-medium text-gray-600 dark:text-gray-300">{meta.total}</span>{" "}
-                records
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1 || isLoading}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  <HiOutlineChevronLeft size={15} />
-                </button>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Page {page} of {meta.totalPages}
-                </span>
-                <button
-                  onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-                  disabled={page === meta.totalPages || isLoading}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  <HiOutlineChevronRight size={15} />
-                </button>
-              </div>
-            </div>
-          )}
-        </>
-      )}
+      <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{label} not available here</p>
+      <p className="mx-auto max-w-sm text-xs text-gray-400 dark:text-gray-500">
+        The transactions API does not support filtering by product. To see{" "}
+        {type === "PURCHASE" ? "purchases" : "sales"} involving this product, go to the
+        Transactions list and filter by type.
+      </p>
+      <a
+        href={`/transactions?type=${type}&status=POSTED`}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-xs font-medium text-brand-600 transition hover:bg-brand-100 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-400"
+      >
+        View {type === "PURCHASE" ? "Purchases" : "Sales"} in Transactions
+        <HiOutlineChevronRight size={12} />
+      </a>
     </div>
   );
 }
 
 // ─── Stock Movements Section ──────────────────────────────────────────────────
 
-function MovementsSection({ productId }: { productId: string }) {
-  const [movements, setMovements] = useState<ProductMovement[]>([]);
-  const [movPage, setMovPage] = useState(1);
-  const [movMeta, setMovMeta] = useState({ total: 0, totalPages: 1 });
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+function MovementsSection({ movements, isLoading }: { movements: StockMovement[]; isLoading: boolean }) {
+  const isIn = (type: StockMovement["type"]) =>
+    type === "PURCHASE_IN" || type === "CUSTOMER_RETURN_IN" || type === "ADJUSTMENT_IN";
 
-  const fetchMovements = async (p: number) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await getProductMovements(productId, p, 20);
-      setMovements(result.data);
-      setMovMeta({ total: result.meta.total, totalPages: result.meta.totalPages });
-    } catch (err) {
-      const apiErr = err as ApiError;
-      setError(apiErr.message ?? "Failed to load movements.");
-    } finally {
-      setIsLoading(false);
-    }
+  const TYPE_LABELS: Record<StockMovement["type"], string> = {
+    PURCHASE_IN: "Purchase In",
+    SALE_OUT: "Sale Out",
+    SUPPLIER_RETURN_OUT: "Supplier Return",
+    CUSTOMER_RETURN_IN: "Customer Return",
+    ADJUSTMENT_IN: "Adjustment In",
+    ADJUSTMENT_OUT: "Adjustment Out",
   };
 
-  useEffect(() => {
-    fetchMovements(movPage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [movPage]);
+  if (isLoading) {
+    return (
+      <div className="space-y-3 animate-pulse">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="h-10 w-full rounded bg-gray-200 dark:bg-gray-700" />
+        ))}
+      </div>
+    );
+  }
+
+  if (movements.length === 0) {
+    return (
+      <p className="py-10 text-center text-sm text-gray-400 dark:text-gray-500">
+        No stock movements recorded yet.
+      </p>
+    );
+  }
 
   return (
-    <div>
-      {error && (
-        <div className="mb-4 flex items-start gap-2 rounded-xl bg-error-50 px-4 py-3 text-sm text-error-600 dark:bg-error-500/10 dark:text-error-400">
-          <HiOutlineExclamationTriangle size={16} className="mt-0.5 shrink-0" />
-          {error}
-        </div>
-      )}
-
-      {isLoading ? (
-        <div className="space-y-3 animate-pulse">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-10 w-full rounded bg-gray-200 dark:bg-gray-700" />
-          ))}
-        </div>
-      ) : movements.length === 0 ? (
-        <p className="py-10 text-center text-sm text-gray-400 dark:text-gray-500">
-          No stock movements recorded yet.
-        </p>
-      ) : (
-        <>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[750px]">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-700">
-                  {["Date", "Document #", "Type", "Size", "Qty In", "Qty Out", "Running Stock"].map(
-                    (col) => (
-                      <th
-                        key={col}
-                        className="pb-3 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 last:text-right last:pr-0"
-                      >
-                        {col}
-                      </th>
-                    )
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                {movements.map((mov, i) => (
-                  <tr key={i} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40">
-                    <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                      {fmtDate(mov.date)}
-                    </td>
-                    <td className="py-3.5 pr-4 text-sm font-medium text-brand-500 whitespace-nowrap">
-                      {mov.documentNumber ?? "—"}
-                    </td>
-                    <td className="py-3.5 pr-4 text-sm font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                      {mov.type}
-                    </td>
-                    <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                      {mov.variantSize}
-                    </td>
-                    <td
-                      className={`py-3.5 pr-4 text-sm font-medium whitespace-nowrap ${
-                        mov.quantityIn > 0
-                          ? "text-success-600 dark:text-success-400"
-                          : "text-gray-400 dark:text-gray-600"
-                      }`}
-                    >
-                      {mov.quantityIn > 0 ? mov.quantityIn : "—"}
-                    </td>
-                    <td
-                      className={`py-3.5 pr-4 text-sm font-medium whitespace-nowrap ${
-                        mov.quantityOut > 0
-                          ? "text-error-600 dark:text-error-400"
-                          : "text-gray-400 dark:text-gray-600"
-                      }`}
-                    >
-                      {mov.quantityOut > 0 ? mov.quantityOut : "—"}
-                    </td>
-                    <td className="py-3.5 text-sm font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap text-right">
-                      {mov.runningStock}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {movMeta.totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-700">
-              <p className="text-xs text-gray-400 dark:text-gray-500">
-                Showing{" "}
-                <span className="font-medium text-gray-600 dark:text-gray-300">
-                  {movements.length}
-                </span>{" "}
-                of{" "}
-                <span className="font-medium text-gray-600 dark:text-gray-300">
-                  {movMeta.total}
-                </span>{" "}
-                movements
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setMovPage((p) => Math.max(1, p - 1))}
-                  disabled={movPage === 1 || isLoading}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  <HiOutlineChevronLeft size={15} />
-                </button>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Page {movPage} of {movMeta.totalPages}
-                </span>
-                <button
-                  onClick={() => setMovPage((p) => Math.min(movMeta.totalPages, p + 1))}
-                  disabled={movPage === movMeta.totalPages || isLoading}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  <HiOutlineChevronRight size={15} />
-                </button>
-              </div>
-            </div>
-          )}
-        </>
-      )}
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[500px]">
+        <thead>
+          <tr className="border-b border-gray-100 dark:border-gray-700">
+            {["Date", "Type", "Direction", "Quantity"].map((col) => (
+              <th
+                key={col}
+                className="pb-3 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 last:pr-0"
+              >
+                {col}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+          {movements.map((mov, i) => {
+            const incoming = isIn(mov.type);
+            return (
+              <tr key={i} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40">
+                <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                  {fmtDate(mov.date)}
+                </td>
+                <td className="py-3.5 pr-4 text-sm font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  {TYPE_LABELS[mov.type]}
+                </td>
+                <td className="py-3.5 pr-4">
+                  <span
+                    className={`text-xs font-semibold ${
+                      incoming
+                        ? "text-success-600 dark:text-success-400"
+                        : "text-error-600 dark:text-error-400"
+                    }`}
+                  >
+                    {incoming ? "IN" : "OUT"}
+                  </span>
+                </td>
+                <td className="py-3.5 text-sm font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">
+                  {mov.quantity.toLocaleString()}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -1396,9 +1001,14 @@ export default function ProductDetailClient({ id }: { id: string }) {
           ))}
         </div>
         <div className="p-5">
-          {activeTab === "movements" && <MovementsSection productId={id} />}
-          {activeTab === "purchases" && <PurchaseHistoryTab productId={id} />}
-          {activeTab === "sales" && <SalesHistoryTab productId={id} />}
+          {activeTab === "movements" && (
+            <MovementsSection
+              movements={productStock?.movements ?? []}
+              isLoading={isLoading}
+            />
+          )}
+          {activeTab === "purchases" && <HistoryNotAvailable type="PURCHASE" />}
+          {activeTab === "sales" && <HistoryNotAvailable type="SALE" />}
         </div>
       </div>
 

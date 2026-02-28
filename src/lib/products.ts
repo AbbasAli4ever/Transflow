@@ -13,6 +13,8 @@ export interface ApiProduct {
   unit: string;
   status: ProductStatus;
   avgCost: number;
+  variants: ApiProductVariant[];
+  totalStock: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -27,6 +29,18 @@ export interface PaginatedResponse<T> {
   };
 }
 
+export interface ApiProductVariant {
+  id: string;
+  productId: string;
+  size: string;
+  sku: string | null;
+  status: ProductStatus;
+  currentStock: number;
+  avgCost: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface StockMovement {
   type:
     | "PURCHASE_IN"
@@ -39,11 +53,42 @@ export interface StockMovement {
   date: string;
 }
 
+export interface ProductMovement {
+  id: string;
+  productId: string;
+  type:
+    | "PURCHASE_IN"
+    | "SALE_OUT"
+    | "SUPPLIER_RETURN_OUT"
+    | "CUSTOMER_RETURN_IN"
+    | "ADJUSTMENT_IN"
+    | "ADJUSTMENT_OUT";
+  documentNumber: string | null;
+  variantSize: string | null;
+  quantityIn: number;
+  quantityOut: number;
+  runningStock: number;
+  unitCost: number | null;
+  note: string | null;
+  referenceId: string | null;
+  date: string;
+  createdAt: string;
+}
+
+export interface ProductStockVariant {
+  variantId: string;
+  size: string;
+  currentStock: number;
+  avgCost: number;
+}
+
 export interface ProductStock {
   productId: string;
   totalQuantity: number;
+  totalStock: number;
   avgCost: number;
   totalValue: number;
+  variants: ProductStockVariant[];
   movements: StockMovement[];
 }
 
@@ -66,8 +111,8 @@ export interface CreateProductBody {
 
 export interface UpdateProductBody {
   name?: string;
-  sku?: string;
-  category?: string;
+  sku?: string | null;
+  category?: string | null;
   unit?: string;
 }
 
@@ -134,4 +179,52 @@ export function getProduct(id: string): Promise<ApiProduct> {
 
 export function getProductStock(id: string): Promise<ProductStock> {
   return apiRequest<ProductStock>(`/products/${id}/stock`);
+}
+
+export function getProductMovements(
+  id: string,
+  page = 1,
+  limit = 20
+): Promise<PaginatedResponse<ProductMovement>> {
+  return apiRequest<PaginatedResponse<ProductMovement>>(
+    `/products/${id}/movements?page=${page}&limit=${limit}`
+  );
+}
+
+export function addVariant(
+  productId: string,
+  body: { size: string; sku?: string }
+): Promise<ApiProductVariant> {
+  return apiRequest<ApiProductVariant>(`/products/${productId}/variants`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateVariant(
+  productId: string,
+  variantId: string,
+  body: { size?: string; sku?: string | null }
+): Promise<ApiProductVariant> {
+  return apiRequest<ApiProductVariant>(
+    `/products/${productId}/variants/${variantId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }
+  );
+}
+
+export function changeVariantStatus(
+  productId: string,
+  variantId: string,
+  status: ProductStatus
+): Promise<ApiProductVariant> {
+  return apiRequest<ApiProductVariant>(
+    `/products/${productId}/variants/${variantId}/status`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }
+  );
 }

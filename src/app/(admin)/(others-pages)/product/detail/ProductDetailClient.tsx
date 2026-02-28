@@ -557,7 +557,7 @@ export default function ProductDetailClient({ id }: { id: string }) {
   const [editOpen, setEditOpen] = useState(false);
   const [statusTarget, setStatusTarget] = useState<ApiProduct | null>(null);
 
-  const [activeTab, setActiveTab] = useState<"overview" | "movements">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "movements" | "purchases" | "sales">("overview");
 
   // Load product info
   const loadProduct = useCallback(async () => {
@@ -768,20 +768,28 @@ export default function ProductDetailClient({ id }: { id: string }) {
       {/* Tabs */}
       <div className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 overflow-hidden">
         {/* Tab bar */}
-        <div className="flex border-b border-gray-100 dark:border-gray-700">
-          {(["overview", "movements"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-6 py-3.5 text-sm font-medium transition-colors ${
-                activeTab === tab
-                  ? "border-b-2 border-brand-500 text-brand-500"
-                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              }`}
-            >
-              {tab === "overview" ? "Product Info" : `Stock Movements${movementCount > 0 ? ` (${movementCount})` : ""}`}
-            </button>
-          ))}
+        <div className="flex overflow-x-auto border-b border-gray-100 dark:border-gray-700">
+          {(["overview", "movements", "purchases", "sales"] as const).map((tab) => {
+            const labels: Record<typeof tab, string> = {
+              overview: "Product Info",
+              movements: `Stock Movements${movementCount > 0 ? ` (${movementCount})` : ""}`,
+              purchases: "Purchase History",
+              sales: "Sale History",
+            };
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`shrink-0 px-6 py-3.5 text-sm font-medium transition-colors ${
+                  activeTab === tab
+                    ? "border-b-2 border-brand-500 text-brand-500"
+                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                }`}
+              >
+                {labels[tab]}
+              </button>
+            );
+          })}
         </div>
 
         {/* Tab content */}
@@ -961,6 +969,30 @@ export default function ProductDetailClient({ id }: { id: string }) {
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {(activeTab === "purchases" || activeTab === "sales") && (
+            <div className="py-8 text-center space-y-3">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                <HiOutlineCube size={22} className="text-gray-400 dark:text-gray-500" />
+              </div>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                {activeTab === "purchases" ? "Purchase History" : "Sale History"} not available here
+              </p>
+              <p className="mx-auto max-w-sm text-xs text-gray-400 dark:text-gray-500">
+                The transactions API does not support filtering by product. To see{" "}
+                {activeTab === "purchases" ? "purchases" : "sales"} involving this product, go to
+                the Transactions list and filter by{" "}
+                {activeTab === "purchases" ? "type PURCHASE" : "type SALE"}.
+              </p>
+              <a
+                href={`/transaction?type=${activeTab === "purchases" ? "PURCHASE" : "SALE"}&status=POSTED`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-xs font-medium text-brand-600 transition hover:bg-brand-100 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-400"
+              >
+                View {activeTab === "purchases" ? "Purchases" : "Sales"} in Transactions
+                <HiOutlineChevronRight size={12} />
+              </a>
             </div>
           )}
         </div>

@@ -428,7 +428,7 @@ export default function PaymentAccountsPage() {
     setPage(1);
   };
 
-  const totalBalance = accounts.reduce((sum, a) => sum + a._computed.currentBalance, 0);
+  const totalBalance = accounts.reduce((sum, a) => sum + (a._computed?.currentBalance ?? 0), 0);
 
   return (
     <div className="mx-auto w-full max-w-full">
@@ -560,7 +560,7 @@ export default function PaymentAccountsPage() {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-sm font-medium text-gray-800 dark:text-gray-100">
-                      {formatPKR(account._computed.currentBalance)}
+                      {formatPKR(account._computed?.currentBalance ?? 0)}
                     </td>
                     <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">
                       {formatPKR(account.openingBalance)}

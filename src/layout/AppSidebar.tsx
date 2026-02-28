@@ -16,7 +16,13 @@ import {
   TableIcon,
   UserCircleIcon,
 } from "../icons/index";
-import { HiOutlineBuildingStorefront, HiOutlineUserGroup, HiOutlineCreditCard, HiOutlineArchiveBox } from "react-icons/hi2";
+import {
+  HiOutlineArrowsUpDown,
+  HiOutlineBuildingStorefront,
+  HiOutlineUserGroup,
+  HiOutlineCreditCard,
+  HiOutlineArchiveBox,
+} from "react-icons/hi2";
 import SidebarWidget from "./SidebarWidget";
 
 type NavItem = {
@@ -31,6 +37,11 @@ const navItems: NavItem[] = [
     icon: <GridIcon />,
     name: "Dashboard",
     path: "/",
+  },
+  {
+    icon: <HiOutlineArrowsUpDown size={22} />,
+    name: "Transactions",
+    path: "/transactions",
   },
   {
     icon: <HiOutlineBuildingStorefront size={22} />,

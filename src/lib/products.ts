@@ -4,6 +4,20 @@ import { apiRequest } from "./api";
 
 export type ProductStatus = "ACTIVE" | "INACTIVE";
 
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  size: string;
+  sku: string | null;
+  avgCost: number;
+  currentStock: number;
+  status: ProductStatus;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type ApiProductVariant = ProductVariant;
+
 export interface ApiProduct {
   id: string;
   tenantId: string;
@@ -13,8 +27,11 @@ export interface ApiProduct {
   unit: string;
   status: ProductStatus;
   avgCost: number;
+  createdBy?: string | null;
+  totalStock?: number;
   createdAt: string;
   updatedAt: string;
+  variants: ProductVariant[];
 }
 
 export interface PaginatedResponse<T> {
@@ -39,12 +56,41 @@ export interface StockMovement {
   date: string;
 }
 
+export interface ProductMovement {
+  date: string;
+  documentNumber: string | null;
+  type: string;
+  variantSize: string;
+  quantityIn: number;
+  quantityOut: number;
+  runningStock: number;
+}
+
 export interface ProductStock {
   productId: string;
+  productName?: string;
+  totalStock?: number;
   totalQuantity: number;
   avgCost: number;
   totalValue: number;
   movements: StockMovement[];
+  variants: Array<{
+    variantId: string;
+    size: string;
+    sku?: string | null;
+    currentStock: number;
+    avgCost: number;
+  }>;
+}
+
+export interface ProductMovementsResponse {
+  data: ProductMovement[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface ListProductsParams {
@@ -66,9 +112,19 @@ export interface CreateProductBody {
 
 export interface UpdateProductBody {
   name?: string;
-  sku?: string;
+  sku?: string | null;
   category?: string;
   unit?: string;
+}
+
+export interface CreateVariantBody {
+  size: string;
+  sku?: string;
+}
+
+export interface UpdateVariantBody {
+  size?: string;
+  sku?: string | null;
 }
 
 // ─── Currency Helper ──────────────────────────────────────────────────────────
@@ -133,5 +189,69 @@ export function getProduct(id: string): Promise<ApiProduct> {
 }
 
 export function getProductStock(id: string): Promise<ProductStock> {
-  return apiRequest<ProductStock>(`/products/${id}/stock`);
+  return apiRequest<Partial<ProductStock> & { totalStock?: number }>(`/products/${id}/stock`).then(
+    (stock) => {
+      const variants = stock.variants ?? [];
+      const totalQuantity =
+        stock.totalQuantity ?? stock.totalStock ?? variants.reduce((sum, item) => sum + item.currentStock, 0);
+      const totalValue =
+        stock.totalValue ?? variants.reduce((sum, item) => sum + item.currentStock * item.avgCost, 0);
+
+      return {
+        productId: stock.productId ?? id,
+        productName: stock.productName,
+        totalStock: stock.totalStock ?? totalQuantity,
+        totalQuantity,
+        avgCost: stock.avgCost ?? 0,
+        totalValue,
+        movements: stock.movements ?? [],
+        variants,
+      };
+    }
+  );
+}
+
+export function getProductMovements(
+  id: string,
+  page = 1,
+  limit = 20
+): Promise<ProductMovementsResponse> {
+  const qs = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  return apiRequest<ProductMovementsResponse>(`/products/${id}/movements?${qs.toString()}`);
+}
+
+export function addVariant(
+  id: string,
+  body: CreateVariantBody
+): Promise<ApiProductVariant> {
+  return apiRequest<ApiProductVariant>(`/products/${id}/variants`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateVariant(
+  id: string,
+  variantId: string,
+  body: UpdateVariantBody
+): Promise<ApiProductVariant> {
+  return apiRequest<ApiProductVariant>(`/products/${id}/variants/${variantId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function changeVariantStatus(
+  id: string,
+  variantId: string,
+  status: ProductStatus,
+  reason?: string
+): Promise<ApiProductVariant> {
+  return apiRequest<ApiProductVariant>(`/products/${id}/variants/${variantId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, ...(reason ? { reason } : {}) }),
+  });
 }

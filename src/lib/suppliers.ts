@@ -185,6 +185,20 @@ export interface ListTransactionsParams {
   sortOrder?: "asc" | "desc";
 }
 
+export interface CreatePurchaseDraftBody {
+  supplierId: string;
+  transactionDate: string;
+  lines: Array<{
+    variantId: string;
+    quantity: number;
+    unitCost: number;
+    discountAmount?: number;
+  }>;
+  deliveryFee?: number;
+  notes?: string;
+  idempotencyKey?: string;
+}
+
 export interface ListSuppliersParams {
   page?: number;
   limit?: number;
@@ -309,6 +323,15 @@ export function listTransactions(
 
 export function getTransaction(id: string): Promise<ApiTransaction> {
   return apiRequest<ApiTransaction>(`/transactions/${id}`);
+}
+
+export function createPurchaseDraft(
+  body: CreatePurchaseDraftBody
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>("/transactions/purchases/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export function postTransaction(

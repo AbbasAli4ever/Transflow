@@ -41,7 +41,11 @@ const navItems: NavItem[] = [
   {
     icon: <HiOutlineArrowsUpDown size={22} />,
     name: "Transactions",
-    path: "/transactions",
+    subItems: [
+      { name: "All Transactions", path: "/transactions" },
+      { name: "New Purchase", path: "/transactions/purchase" },
+      { name: "New Sale", path: "/transactions/sale" },
+    ],
   },
   {
     icon: <HiOutlineBuildingStorefront size={22} />,

@@ -199,6 +199,22 @@ export interface CreatePurchaseDraftBody {
   idempotencyKey?: string;
 }
 
+export interface CreateSaleDraftBody {
+  customerId: string;
+  transactionDate: string;
+  lines: Array<{
+    variantId: string;
+    quantity: number;
+    unitPrice: number;
+    discountAmount?: number;
+  }>;
+  deliveryFee?: number;
+  deliveryType?: string;
+  deliveryAddress?: string;
+  notes?: string;
+  idempotencyKey?: string;
+}
+
 export interface ListSuppliersParams {
   page?: number;
   limit?: number;
@@ -329,6 +345,15 @@ export function createPurchaseDraft(
   body: CreatePurchaseDraftBody
 ): Promise<ApiTransaction> {
   return apiRequest<ApiTransaction>("/transactions/purchases/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createSaleDraft(
+  body: CreateSaleDraftBody
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>("/transactions/sales/draft", {
     method: "POST",
     body: JSON.stringify(body),
   });

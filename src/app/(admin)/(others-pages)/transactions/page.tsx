@@ -84,6 +84,11 @@ const TYPE_OPTIONS: { value: TransactionType | ""; label: string }[] = [
   { value: "ADJUSTMENT", label: "Adjustment" },
 ];
 
+const NEW_TRANSACTION_ROUTES: Partial<Record<TransactionType, string>> = {
+  PURCHASE: "/transactions/purchase",
+  SALE: "/transactions/sale",
+};
+
 const STATUS_OPTIONS: { value: TransactionStatus | ""; label: string }[] = [
   { value: "", label: "All Status" },
   { value: "DRAFT", label: "Draft" },
@@ -393,7 +398,11 @@ export default function TransactionsPage() {
               <DropdownItem
                 key={opt.value}
                 tag="a"
-                href={`/transactions/new?type=${opt.value}`}
+                href={
+                  opt.value
+                    ? NEW_TRANSACTION_ROUTES[opt.value] ?? `/transactions/new?type=${opt.value}`
+                    : "/transactions/new"
+                }
                 onItemClick={() => setNewDropOpen(false)}
               >
                 {opt.label}

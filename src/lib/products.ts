@@ -4,6 +4,20 @@ import { apiRequest } from "./api";
 
 export type ProductStatus = "ACTIVE" | "INACTIVE";
 
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  size: string;
+  sku: string | null;
+  avgCost: number;
+  currentStock: number;
+  status: ProductStatus;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type ApiProductVariant = ProductVariant;
+
 export interface ApiProduct {
   id: string;
   tenantId: string;
@@ -13,10 +27,11 @@ export interface ApiProduct {
   unit: string;
   status: ProductStatus;
   avgCost: number;
-  variants: ApiProductVariant[];
-  totalStock: number;
+  createdBy?: string | null;
+  totalStock?: number;
   createdAt: string;
   updatedAt: string;
+  variants: ProductVariant[];
 }
 
 export interface PaginatedResponse<T> {
@@ -54,42 +69,42 @@ export interface StockMovement {
 }
 
 export interface ProductMovement {
-  id: string;
-  productId: string;
-  type:
-    | "PURCHASE_IN"
-    | "SALE_OUT"
-    | "SUPPLIER_RETURN_OUT"
-    | "CUSTOMER_RETURN_IN"
-    | "ADJUSTMENT_IN"
-    | "ADJUSTMENT_OUT";
+  date: string;
   documentNumber: string | null;
-  variantSize: string | null;
+  type: string;
+  variantSize: string;
   quantityIn: number;
   quantityOut: number;
   runningStock: number;
-  unitCost: number | null;
-  note: string | null;
-  referenceId: string | null;
-  date: string;
-  createdAt: string;
-}
-
-export interface ProductStockVariant {
-  variantId: string;
-  size: string;
-  currentStock: number;
-  avgCost: number;
 }
 
 export interface ProductStock {
   productId: string;
+  productName?: string;
+  totalStock?: number;
   totalQuantity: number;
   totalStock: number;
   avgCost: number;
   totalValue: number;
   variants: ProductStockVariant[];
   movements: StockMovement[];
+  variants: Array<{
+    variantId: string;
+    size: string;
+    sku?: string | null;
+    currentStock: number;
+    avgCost: number;
+  }>;
+}
+
+export interface ProductMovementsResponse {
+  data: ProductMovement[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface ListProductsParams {
@@ -112,8 +127,18 @@ export interface CreateProductBody {
 export interface UpdateProductBody {
   name?: string;
   sku?: string | null;
-  category?: string | null;
+  category?: string;
   unit?: string;
+}
+
+export interface CreateVariantBody {
+  size: string;
+  sku?: string;
+}
+
+export interface UpdateVariantBody {
+  size?: string;
+  sku?: string | null;
 }
 
 // ─── Currency Helper ──────────────────────────────────────────────────────────
@@ -178,53 +203,69 @@ export function getProduct(id: string): Promise<ApiProduct> {
 }
 
 export function getProductStock(id: string): Promise<ProductStock> {
-  return apiRequest<ProductStock>(`/products/${id}/stock`);
+  return apiRequest<Partial<ProductStock> & { totalStock?: number }>(`/products/${id}/stock`).then(
+    (stock) => {
+      const variants = stock.variants ?? [];
+      const totalQuantity =
+        stock.totalQuantity ?? stock.totalStock ?? variants.reduce((sum, item) => sum + item.currentStock, 0);
+      const totalValue =
+        stock.totalValue ?? variants.reduce((sum, item) => sum + item.currentStock * item.avgCost, 0);
+
+      return {
+        productId: stock.productId ?? id,
+        productName: stock.productName,
+        totalStock: stock.totalStock ?? totalQuantity,
+        totalQuantity,
+        avgCost: stock.avgCost ?? 0,
+        totalValue,
+        movements: stock.movements ?? [],
+        variants,
+      };
+    }
+  );
 }
 
 export function getProductMovements(
   id: string,
   page = 1,
   limit = 20
-): Promise<PaginatedResponse<ProductMovement>> {
-  return apiRequest<PaginatedResponse<ProductMovement>>(
-    `/products/${id}/movements?page=${page}&limit=${limit}`
-  );
+): Promise<ProductMovementsResponse> {
+  const qs = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  return apiRequest<ProductMovementsResponse>(`/products/${id}/movements?${qs.toString()}`);
 }
 
 export function addVariant(
-  productId: string,
-  body: { size: string; sku?: string }
+  id: string,
+  body: CreateVariantBody
 ): Promise<ApiProductVariant> {
-  return apiRequest<ApiProductVariant>(`/products/${productId}/variants`, {
+  return apiRequest<ApiProductVariant>(`/products/${id}/variants`, {
     method: "POST",
     body: JSON.stringify(body),
   });
 }
 
 export function updateVariant(
-  productId: string,
+  id: string,
   variantId: string,
-  body: { size?: string; sku?: string | null }
+  body: UpdateVariantBody
 ): Promise<ApiProductVariant> {
-  return apiRequest<ApiProductVariant>(
-    `/products/${productId}/variants/${variantId}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(body),
-    }
-  );
+  return apiRequest<ApiProductVariant>(`/products/${id}/variants/${variantId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
 }
 
 export function changeVariantStatus(
-  productId: string,
+  id: string,
   variantId: string,
-  status: ProductStatus
+  status: ProductStatus,
+  reason?: string
 ): Promise<ApiProductVariant> {
-  return apiRequest<ApiProductVariant>(
-    `/products/${productId}/variants/${variantId}/status`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    }
-  );
+  return apiRequest<ApiProductVariant>(`/products/${id}/variants/${variantId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, ...(reason ? { reason } : {}) }),
+  });
 }

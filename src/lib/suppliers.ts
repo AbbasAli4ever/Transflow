@@ -92,6 +92,10 @@ export interface ApiTransactionLine {
     sku: string | null;
     avgCost: number;
     status: string;
+    product?: {
+      id: string;
+      name: string;
+    } | null;
   } | null;
 }
 
@@ -128,6 +132,43 @@ export interface ApiTransaction {
   supplier: { id: string; name: string } | null;
   customer: { id: string; name: string } | null;
   transactionLines?: ApiTransactionLine[];
+  paymentEntries?: ApiPaymentEntry[];
+}
+
+export interface ApiPaymentEntry {
+  id: string;
+  transactionId: string;
+  paymentAccountId: string;
+  amount: number;
+  createdAt: string;
+}
+
+export interface TransactionAllocation {
+  id: string;
+  tenantId: string;
+  paymentTransactionId: string;
+  appliesToTransactionId: string;
+  amountApplied: number;
+  paymentTransaction: {
+    documentNumber: string | null;
+    totalAmount: number;
+  };
+  appliesToTransaction: {
+    documentNumber: string | null;
+    totalAmount: number;
+    transactionDate?: string;
+  };
+}
+
+export interface ListAllocationsParams {
+  supplierId?: string;
+  customerId?: string;
+  purchaseId?: string;
+  saleId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  limit?: number;
 }
 
 export interface ListTransactionsParams {
@@ -141,6 +182,36 @@ export interface ListTransactionsParams {
   dateTo?: string;
   sortBy?: "transactionDate" | "createdAt" | "totalAmount";
   sortOrder?: "asc" | "desc";
+}
+
+export interface CreatePurchaseDraftBody {
+  supplierId: string;
+  transactionDate: string;
+  lines: Array<{
+    variantId: string;
+    quantity: number;
+    unitCost: number;
+    discountAmount?: number;
+  }>;
+  deliveryFee?: number;
+  notes?: string;
+  idempotencyKey?: string;
+}
+
+export interface CreateSaleDraftBody {
+  customerId: string;
+  transactionDate: string;
+  lines: Array<{
+    variantId: string;
+    quantity: number;
+    unitPrice: number;
+    discountAmount?: number;
+  }>;
+  deliveryFee?: number;
+  deliveryType?: string;
+  deliveryAddress?: string;
+  notes?: string;
+  idempotencyKey?: string;
 }
 
 export interface ListSuppliersParams {
@@ -261,5 +332,96 @@ export function listTransactions(
   const query = qs.toString();
   return apiRequest<PaginatedResponse<ApiTransaction>>(
     `/transactions${query ? `?${query}` : ""}`
+  );
+}
+
+export function getTransaction(id: string): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>(`/transactions/${id}`);
+}
+
+export function createPurchaseDraft(
+  body: CreatePurchaseDraftBody
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>("/transactions/purchases/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createSaleDraft(
+  body: CreateSaleDraftBody
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>("/transactions/sales/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function postTransaction(
+  id: string,
+  body: { idempotencyKey?: string; paidNow?: number; receivedNow?: number; paymentAccountId?: string; returnHandling?: string }
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>(`/transactions/${id}/post`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function patchTransaction(
+  id: string,
+  body: PatchTransactionDto
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>(`/transactions/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteTransaction(id: string): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>(`/transactions/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export interface PatchTransactionLineDto {
+  lineId?: string;
+  variantId?: string;
+  quantity?: number;
+  unitCost?: number;
+  unitPrice?: number;
+  discountAmount?: number;
+  direction?: "IN" | "OUT";
+  reason?: string;
+}
+
+export interface PatchTransactionDto {
+  transactionDate?: string;
+  notes?: string;
+  supplierId?: string;
+  customerId?: string;
+  deliveryFee?: number;
+  deliveryType?: string;
+  deliveryAddress?: string;
+  amount?: number;
+  fromPaymentAccountId?: string;
+  toPaymentAccountId?: string;
+  lines?: PatchTransactionLineDto[];
+}
+
+export function listTransactionAllocations(
+  params: ListAllocationsParams = {}
+): Promise<PaginatedResponse<TransactionAllocation>> {
+  const qs = new URLSearchParams();
+  if (params.page !== undefined) qs.set("page", String(params.page));
+  if (params.limit !== undefined) qs.set("limit", String(params.limit));
+  if (params.supplierId) qs.set("supplierId", params.supplierId);
+  if (params.customerId) qs.set("customerId", params.customerId);
+  if (params.purchaseId) qs.set("purchaseId", params.purchaseId);
+  if (params.saleId) qs.set("saleId", params.saleId);
+  if (params.dateFrom) qs.set("dateFrom", params.dateFrom);
+  if (params.dateTo) qs.set("dateTo", params.dateTo);
+  const query = qs.toString();
+  return apiRequest<PaginatedResponse<TransactionAllocation>>(
+    `/transactions/allocations${query ? `?${query}` : ""}`
   );
 }

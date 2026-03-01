@@ -40,6 +40,11 @@ export default function NewTransactionPage() {
       return;
     }
 
+    if (type === "ADJUSTMENT") {
+      router.replace("/transactions/stock-adjustment");
+      return;
+    }
+
     router.replace("/transactions/purchase");
   }, [router, searchParams]);
 

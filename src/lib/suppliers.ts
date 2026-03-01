@@ -278,6 +278,18 @@ export interface CreateInternalTransferDraftBody {
   idempotencyKey?: string;
 }
 
+export interface CreateAdjustmentDraftBody {
+  transactionDate: string;
+  lines: Array<{
+    variantId: string;
+    quantity: number;
+    direction: "IN" | "OUT";
+    reason: string;
+  }>;
+  notes?: string;
+  idempotencyKey?: string;
+}
+
 export interface PostTransactionBody {
   idempotencyKey?: string;
   paidNow?: number;
@@ -474,6 +486,15 @@ export function createInternalTransferDraft(
   body: CreateInternalTransferDraftBody
 ): Promise<ApiTransaction> {
   return apiRequest<ApiTransaction>("/transactions/internal-transfers/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createAdjustmentDraft(
+  body: CreateAdjustmentDraftBody
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>("/transactions/adjustments/draft", {
     method: "POST",
     body: JSON.stringify(body),
   });

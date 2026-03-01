@@ -50,6 +50,7 @@ const navItems: NavItem[] = [
       { name: "Supplier Return", path: "/transactions/supplier-return" },
       { name: "Customer Return", path: "/transactions/customer-return" },
       { name: "Internal Transfer", path: "/transactions/internal-transfer" },
+      { name: "Stock Adjustment", path: "/transactions/stock-adjustment" },
     ],
   },
   {

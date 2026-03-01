@@ -178,6 +178,7 @@ export interface ListTransactionsParams {
   status?: TransactionStatus;
   supplierId?: string;
   customerId?: string;
+  productId?: string;
   dateFrom?: string;
   dateTo?: string;
   sortBy?: "transactionDate" | "createdAt" | "totalAmount";
@@ -325,6 +326,7 @@ export function listTransactions(
   if (params.status) qs.set("status", params.status);
   if (params.supplierId) qs.set("supplierId", params.supplierId);
   if (params.customerId) qs.set("customerId", params.customerId);
+  if (params.productId) qs.set("productId", params.productId);
   if (params.dateFrom) qs.set("dateFrom", params.dateFrom);
   if (params.dateTo) qs.set("dateTo", params.dateTo);
   if (params.sortBy) qs.set("sortBy", params.sortBy);

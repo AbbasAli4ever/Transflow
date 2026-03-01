@@ -11,6 +11,7 @@ import {
   HiOutlineXMark,
   HiOutlineExclamationTriangle,
   HiOutlineChevronRight,
+  HiOutlineChevronLeft,
 } from "react-icons/hi2";
 import Badge from "@/components/ui/badge/Badge";
 import Button from "@/components/ui/button/Button";
@@ -19,17 +20,19 @@ import {
   ApiProduct,
   ApiProductVariant,
   ProductStock,
-  StockMovement,
+  ProductMovement,
   ProductStatus,
   formatPKR,
   getProduct,
   getProductStock,
+  getProductMovements,
   updateProduct,
   changeProductStatus,
   addVariant,
   updateVariant,
   changeVariantStatus,
 } from "@/lib/products";
+import { ApiTransaction, listTransactions } from "@/lib/suppliers";
 import { ApiError } from "@/lib/api";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -588,54 +591,165 @@ function VariantStatusModal({
   );
 }
 
-// ─── History Not Available ─────────────────────────────────────────────────────
+// ─── Transaction History Tab ──────────────────────────────────────────────────
 
-function HistoryNotAvailable({ type }: { type: "PURCHASE" | "SALE" }) {
-  const label = type === "PURCHASE" ? "Purchase History" : "Sale History";
+function TransactionHistoryTab({
+  productId,
+  type,
+}: {
+  productId: string;
+  type: "PURCHASE" | "SALE";
+}) {
+  const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
+  const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    listTransactions({ type, status: "POSTED", productId, page, limit: 20 })
+      .then((res) => {
+        setTransactions(res.data);
+        setMeta({ page: res.meta.page, totalPages: res.meta.totalPages, total: res.meta.total });
+      })
+      .catch((err: ApiError) => setError(err.message ?? "Failed to load."))
+      .finally(() => setLoading(false));
+  }, [productId, type, page]);
+
+  const label = type === "PURCHASE" ? "Purchase" : "Sale";
+  const partyLabel = type === "PURCHASE" ? "Supplier" : "Customer";
+
+  if (loading) {
+    return (
+      <div className="space-y-3 animate-pulse">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="h-10 w-full rounded bg-gray-200 dark:bg-gray-700" />
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-start gap-2 rounded-xl bg-error-50 px-4 py-3 text-sm text-error-600 dark:bg-error-500/10 dark:text-error-400">
+        <HiOutlineExclamationTriangle size={16} className="mt-0.5 shrink-0" />
+        {error}
+      </div>
+    );
+  }
+
+  if (transactions.length === 0) {
+    return (
+      <p className="py-10 text-center text-sm text-gray-400 dark:text-gray-500">
+        No {label.toLowerCase()} transactions found for this product.
+      </p>
+    );
+  }
 
   return (
-    <div className="py-8 text-center space-y-3">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
-        <HiOutlineArchiveBox size={22} className="text-gray-400 dark:text-gray-500" />
+    <div className="space-y-4">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[600px]">
+          <thead>
+            <tr className="border-b border-gray-100 dark:border-gray-700">
+              {["Date", "Document #", partyLabel, "Amount"].map((col) => (
+                <th
+                  key={col}
+                  className="pb-3 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 last:pr-0 last:text-right"
+                >
+                  {col}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+            {transactions.map((tx) => (
+              <tr key={tx.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40">
+                <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                  {fmtDate(tx.transactionDate)}
+                </td>
+                <td className="py-3.5 pr-4 text-sm font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  {tx.documentNumber ?? "—"}
+                </td>
+                <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                  {(type === "PURCHASE" ? tx.supplier?.name : tx.customer?.name) ?? "—"}
+                </td>
+                <td className="py-3.5 text-sm font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap text-right">
+                  {formatPKR(tx.totalAmount)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{label} not available here</p>
-      <p className="mx-auto max-w-sm text-xs text-gray-400 dark:text-gray-500">
-        The transactions API does not support filtering by product. To see{" "}
-        {type === "PURCHASE" ? "purchases" : "sales"} involving this product, go to the
-        Transactions list and filter by type.
-      </p>
-      <a
-        href={`/transactions?type=${type}&status=POSTED`}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-xs font-medium text-brand-600 transition hover:bg-brand-100 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-400"
-      >
-        View {type === "PURCHASE" ? "Purchases" : "Sales"} in Transactions
-        <HiOutlineChevronRight size={12} />
-      </a>
+      {meta.totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {meta.total} result{meta.total !== 1 ? "s" : ""}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+            >
+              <HiOutlineChevronLeft size={14} />
+            </button>
+            <span className="px-2 text-xs text-gray-600 dark:text-gray-300">
+              {page} / {meta.totalPages}
+            </span>
+            <button
+              disabled={page >= meta.totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+            >
+              <HiOutlineChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── Stock Movements Section ──────────────────────────────────────────────────
 
-function MovementsSection({ movements, isLoading }: { movements: StockMovement[]; isLoading: boolean }) {
-  const isIn = (type: StockMovement["type"]) =>
-    type === "PURCHASE_IN" || type === "CUSTOMER_RETURN_IN" || type === "ADJUSTMENT_IN";
+function MovementsSection({ productId }: { productId: string }) {
+  const [movements, setMovements] = useState<ProductMovement[]>([]);
+  const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const TYPE_LABELS: Record<StockMovement["type"], string> = {
-    PURCHASE_IN: "Purchase In",
-    SALE_OUT: "Sale Out",
-    SUPPLIER_RETURN_OUT: "Supplier Return",
-    CUSTOMER_RETURN_IN: "Customer Return",
-    ADJUSTMENT_IN: "Adjustment In",
-    ADJUSTMENT_OUT: "Adjustment Out",
-  };
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    getProductMovements(productId, page, 20)
+      .then((res) => {
+        setMovements(res.data);
+        setMeta({ page: res.meta.page, totalPages: res.meta.totalPages, total: res.meta.total });
+      })
+      .catch((err: ApiError) => setError(err.message ?? "Failed to load movements."))
+      .finally(() => setLoading(false));
+  }, [productId, page]);
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="space-y-3 animate-pulse">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="h-10 w-full rounded bg-gray-200 dark:bg-gray-700" />
         ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-start gap-2 rounded-xl bg-error-50 px-4 py-3 text-sm text-error-600 dark:bg-error-500/10 dark:text-error-400">
+        <HiOutlineExclamationTriangle size={16} className="mt-0.5 shrink-0" />
+        {error}
       </div>
     );
   }
@@ -649,50 +763,84 @@ function MovementsSection({ movements, isLoading }: { movements: StockMovement[]
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[500px]">
-        <thead>
-          <tr className="border-b border-gray-100 dark:border-gray-700">
-            {["Date", "Type", "Direction", "Quantity"].map((col) => (
-              <th
-                key={col}
-                className="pb-3 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 last:pr-0"
-              >
-                {col}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-          {movements.map((mov, i) => {
-            const incoming = isIn(mov.type);
-            return (
+    <div className="space-y-4">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[700px]">
+          <thead>
+            <tr className="border-b border-gray-100 dark:border-gray-700">
+              {["Date", "Document #", "Type", "Size", "In", "Out", "Stock"].map((col) => (
+                <th
+                  key={col}
+                  className="pb-3 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 last:pr-0"
+                >
+                  {col}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+            {movements.map((mov, i) => (
               <tr key={i} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40">
                 <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                   {fmtDate(mov.date)}
                 </td>
+                <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                  {mov.documentNumber ?? "—"}
+                </td>
                 <td className="py-3.5 pr-4 text-sm font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  {TYPE_LABELS[mov.type]}
+                  {mov.type}
                 </td>
-                <td className="py-3.5 pr-4">
-                  <span
-                    className={`text-xs font-semibold ${
-                      incoming
-                        ? "text-success-600 dark:text-success-400"
-                        : "text-error-600 dark:text-error-400"
-                    }`}
-                  >
-                    {incoming ? "IN" : "OUT"}
-                  </span>
+                <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                  {mov.variantSize}
                 </td>
-                <td className="py-3.5 text-sm font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">
-                  {mov.quantity.toLocaleString()}
+                <td className="py-3.5 pr-4 text-sm font-semibold whitespace-nowrap">
+                  {mov.quantityIn > 0 ? (
+                    <span className="text-success-600 dark:text-success-400">+{mov.quantityIn}</span>
+                  ) : (
+                    <span className="text-gray-300 dark:text-gray-600">—</span>
+                  )}
+                </td>
+                <td className="py-3.5 pr-4 text-sm font-semibold whitespace-nowrap">
+                  {mov.quantityOut > 0 ? (
+                    <span className="text-error-600 dark:text-error-400">-{mov.quantityOut}</span>
+                  ) : (
+                    <span className="text-gray-300 dark:text-gray-600">—</span>
+                  )}
+                </td>
+                <td className="py-3.5 text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  {mov.runningStock}
                 </td>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {meta.totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {meta.total} movement{meta.total !== 1 ? "s" : ""}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+            >
+              <HiOutlineChevronLeft size={14} />
+            </button>
+            <span className="px-2 text-xs text-gray-600 dark:text-gray-300">
+              {page} / {meta.totalPages}
+            </span>
+            <button
+              disabled={page >= meta.totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+            >
+              <HiOutlineChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1001,14 +1149,13 @@ export default function ProductDetailClient({ id }: { id: string }) {
           ))}
         </div>
         <div className="p-5">
-          {activeTab === "movements" && (
-            <MovementsSection
-              movements={productStock?.movements ?? []}
-              isLoading={isLoading}
-            />
+          {activeTab === "movements" && <MovementsSection productId={id} />}
+          {activeTab === "purchases" && (
+            <TransactionHistoryTab productId={id} type="PURCHASE" />
           )}
-          {activeTab === "purchases" && <HistoryNotAvailable type="PURCHASE" />}
-          {activeTab === "sales" && <HistoryNotAvailable type="SALE" />}
+          {activeTab === "sales" && (
+            <TransactionHistoryTab productId={id} type="SALE" />
+          )}
         </div>
       </div>
 

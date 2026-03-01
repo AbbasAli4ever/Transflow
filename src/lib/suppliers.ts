@@ -258,6 +258,17 @@ export interface CreateSupplierReturnDraftBody {
   idempotencyKey?: string;
 }
 
+export interface CreateCustomerReturnDraftBody {
+  customerId: string;
+  transactionDate: string;
+  lines: Array<{
+    sourceTransactionLineId: string;
+    quantity: number;
+  }>;
+  notes?: string;
+  idempotencyKey?: string;
+}
+
 export interface PostTransactionBody {
   idempotencyKey?: string;
   paidNow?: number;
@@ -436,6 +447,15 @@ export function createSupplierReturnDraft(
   body: CreateSupplierReturnDraftBody
 ): Promise<ApiTransaction> {
   return apiRequest<ApiTransaction>("/transactions/supplier-returns/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createCustomerReturnDraft(
+  body: CreateCustomerReturnDraftBody
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>("/transactions/customer-returns/draft", {
     method: "POST",
     body: JSON.stringify(body),
   });

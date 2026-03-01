@@ -30,6 +30,11 @@ export default function NewTransactionPage() {
       return;
     }
 
+    if (type === "CUSTOMER_RETURN") {
+      router.replace("/transactions/customer-return");
+      return;
+    }
+
     router.replace("/transactions/purchase");
   }, [router, searchParams]);
 

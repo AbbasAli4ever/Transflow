@@ -91,6 +91,7 @@ const NEW_TRANSACTION_ROUTES: Partial<Record<TransactionType, string>> = {
   CUSTOMER_PAYMENT: "/transactions/customer-payment",
   SUPPLIER_RETURN: "/transactions/supplier-return",
   CUSTOMER_RETURN: "/transactions/customer-return",
+  INTERNAL_TRANSFER: "/transactions/internal-transfer",
 };
 
 const STATUS_OPTIONS: { value: TransactionStatus | ""; label: string }[] = [

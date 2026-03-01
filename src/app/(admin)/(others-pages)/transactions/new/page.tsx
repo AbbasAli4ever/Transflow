@@ -35,6 +35,11 @@ export default function NewTransactionPage() {
       return;
     }
 
+    if (type === "INTERNAL_TRANSFER") {
+      router.replace("/transactions/internal-transfer");
+      return;
+    }
+
     router.replace("/transactions/purchase");
   }, [router, searchParams]);
 

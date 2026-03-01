@@ -269,6 +269,15 @@ export interface CreateCustomerReturnDraftBody {
   idempotencyKey?: string;
 }
 
+export interface CreateInternalTransferDraftBody {
+  fromPaymentAccountId: string;
+  toPaymentAccountId: string;
+  amount: number;
+  transactionDate: string;
+  notes?: string;
+  idempotencyKey?: string;
+}
+
 export interface PostTransactionBody {
   idempotencyKey?: string;
   paidNow?: number;
@@ -456,6 +465,15 @@ export function createCustomerReturnDraft(
   body: CreateCustomerReturnDraftBody
 ): Promise<ApiTransaction> {
   return apiRequest<ApiTransaction>("/transactions/customer-returns/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createInternalTransferDraft(
+  body: CreateInternalTransferDraftBody
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>("/transactions/internal-transfers/draft", {
     method: "POST",
     body: JSON.stringify(body),
   });

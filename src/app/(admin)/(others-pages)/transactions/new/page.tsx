@@ -15,6 +15,11 @@ export default function NewTransactionPage() {
       return;
     }
 
+    if (type === "SUPPLIER_PAYMENT") {
+      router.replace("/transactions/supplier-payment");
+      return;
+    }
+
     router.replace("/transactions/purchase");
   }, [router, searchParams]);
 

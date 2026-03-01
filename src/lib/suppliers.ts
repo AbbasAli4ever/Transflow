@@ -215,6 +215,61 @@ export interface CreateSaleDraftBody {
   idempotencyKey?: string;
 }
 
+export interface CreateSupplierPaymentDraftBody {
+  supplierId: string;
+  amount: number;
+  paymentAccountId: string;
+  transactionDate: string;
+  notes?: string;
+  idempotencyKey?: string;
+}
+
+export interface CreateCustomerPaymentDraftBody {
+  customerId: string;
+  amount: number;
+  paymentAccountId: string;
+  transactionDate: string;
+  notes?: string;
+  idempotencyKey?: string;
+}
+
+export interface ReturnableLine {
+  lineId: string;
+  productName: string;
+  variantSize: string;
+  originalQty: number;
+  alreadyReturned: number;
+  returnableQty: number;
+}
+
+export interface ReturnableLinesResponse {
+  transactionId: string;
+  lines: ReturnableLine[];
+}
+
+export interface CreateSupplierReturnDraftBody {
+  supplierId: string;
+  transactionDate: string;
+  lines: Array<{
+    sourceTransactionLineId: string;
+    quantity: number;
+  }>;
+  notes?: string;
+  idempotencyKey?: string;
+}
+
+export interface PostTransactionBody {
+  idempotencyKey?: string;
+  paidNow?: number;
+  receivedNow?: number;
+  paymentAccountId?: string;
+  allocations?: Array<{
+    transactionId: string;
+    amount: number;
+  }>;
+  returnHandling?: string;
+}
+
 export interface ListSuppliersParams {
   page?: number;
   limit?: number;
@@ -359,9 +414,42 @@ export function createSaleDraft(
   });
 }
 
+export function createSupplierPaymentDraft(
+  body: CreateSupplierPaymentDraftBody
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>("/transactions/supplier-payments/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createCustomerPaymentDraft(
+  body: CreateCustomerPaymentDraftBody
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>("/transactions/customer-payments/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createSupplierReturnDraft(
+  body: CreateSupplierReturnDraftBody
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>("/transactions/supplier-returns/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getTransactionReturnableLines(
+  id: string
+): Promise<ReturnableLinesResponse> {
+  return apiRequest<ReturnableLinesResponse>(`/transactions/${id}/returnable-lines`);
+}
+
 export function postTransaction(
   id: string,
-  body: { idempotencyKey?: string; paidNow?: number; receivedNow?: number; paymentAccountId?: string; returnHandling?: string }
+  body: PostTransactionBody
 ): Promise<ApiTransaction> {
   return apiRequest<ApiTransaction>(`/transactions/${id}/post`, {
     method: "POST",

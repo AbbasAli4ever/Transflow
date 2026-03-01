@@ -66,20 +66,21 @@ export interface ProductMovement {
   runningStock: number;
 }
 
+export interface ProductStockVariant {
+  variantId: string;
+  size: string;
+  sku?: string | null;
+  currentStock: number;
+  avgCost: number;
+}
+
 export interface ProductStock {
   productId: string;
   productName?: string;
-  totalStock: number;
   totalQuantity: number;
   avgCost: number;
   totalValue: number;
-  variants: Array<{
-    variantId: string;
-    size: string;
-    sku?: string | null;
-    currentStock: number;
-    avgCost: number;
-  }>;
+  variants: ProductStockVariant[];
   movements: StockMovement[];
 }
 

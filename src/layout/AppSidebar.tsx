@@ -45,6 +45,9 @@ const navItems: NavItem[] = [
       { name: "All Transactions", path: "/transactions" },
       { name: "New Purchase", path: "/transactions/purchase" },
       { name: "New Sale", path: "/transactions/sale" },
+      { name: "Supplier Payment", path: "/transactions/supplier-payment" },
+      { name: "Customer Receipt", path: "/transactions/customer-payment" },
+      { name: "Supplier Return", path: "/transactions/supplier-return" },
     ],
   },
   {

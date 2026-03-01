@@ -223,6 +223,15 @@ export interface CreateSupplierPaymentDraftBody {
   idempotencyKey?: string;
 }
 
+export interface CreateCustomerPaymentDraftBody {
+  customerId: string;
+  amount: number;
+  paymentAccountId: string;
+  transactionDate: string;
+  notes?: string;
+  idempotencyKey?: string;
+}
+
 export interface PostTransactionBody {
   idempotencyKey?: string;
   paidNow?: number;
@@ -382,6 +391,15 @@ export function createSupplierPaymentDraft(
   body: CreateSupplierPaymentDraftBody
 ): Promise<ApiTransaction> {
   return apiRequest<ApiTransaction>("/transactions/supplier-payments/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createCustomerPaymentDraft(
+  body: CreateCustomerPaymentDraftBody
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>("/transactions/customer-payments/draft", {
     method: "POST",
     body: JSON.stringify(body),
   });

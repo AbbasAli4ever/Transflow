@@ -20,6 +20,11 @@ export default function NewTransactionPage() {
       return;
     }
 
+    if (type === "CUSTOMER_PAYMENT") {
+      router.replace("/transactions/customer-payment");
+      return;
+    }
+
     router.replace("/transactions/purchase");
   }, [router, searchParams]);
 

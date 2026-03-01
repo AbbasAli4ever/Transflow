@@ -232,6 +232,31 @@ export interface CreateCustomerPaymentDraftBody {
   idempotencyKey?: string;
 }
 
+export interface ReturnableLine {
+  lineId: string;
+  productName: string;
+  variantSize: string;
+  originalQty: number;
+  alreadyReturned: number;
+  returnableQty: number;
+}
+
+export interface ReturnableLinesResponse {
+  transactionId: string;
+  lines: ReturnableLine[];
+}
+
+export interface CreateSupplierReturnDraftBody {
+  supplierId: string;
+  transactionDate: string;
+  lines: Array<{
+    sourceTransactionLineId: string;
+    quantity: number;
+  }>;
+  notes?: string;
+  idempotencyKey?: string;
+}
+
 export interface PostTransactionBody {
   idempotencyKey?: string;
   paidNow?: number;
@@ -403,6 +428,21 @@ export function createCustomerPaymentDraft(
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export function createSupplierReturnDraft(
+  body: CreateSupplierReturnDraftBody
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>("/transactions/supplier-returns/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getTransactionReturnableLines(
+  id: string
+): Promise<ReturnableLinesResponse> {
+  return apiRequest<ReturnableLinesResponse>(`/transactions/${id}/returnable-lines`);
 }
 
 export function postTransaction(

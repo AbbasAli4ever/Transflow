@@ -44,18 +44,6 @@ export interface PaginatedResponse<T> {
   };
 }
 
-export interface ApiProductVariant {
-  id: string;
-  productId: string;
-  size: string;
-  sku: string | null;
-  status: ProductStatus;
-  currentStock: number;
-  avgCost: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface StockMovement {
   type:
     | "PURCHASE_IN"
@@ -78,23 +66,23 @@ export interface ProductMovement {
   runningStock: number;
 }
 
+export interface ProductStockVariant {
+  variantId: string;
+  size: string;
+  sku?: string | null;
+  currentStock: number;
+  avgCost: number;
+}
+
 export interface ProductStock {
   productId: string;
   productName?: string;
-  totalStock?: number;
   totalQuantity: number;
   totalStock: number;
   avgCost: number;
   totalValue: number;
   variants: ProductStockVariant[];
   movements: StockMovement[];
-  variants: Array<{
-    variantId: string;
-    size: string;
-    sku?: string | null;
-    currentStock: number;
-    avgCost: number;
-  }>;
 }
 
 export interface ProductMovementsResponse {

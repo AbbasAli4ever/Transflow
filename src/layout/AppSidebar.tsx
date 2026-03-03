@@ -22,6 +22,7 @@ import {
   HiOutlineUserGroup,
   HiOutlineCreditCard,
   HiOutlineArchiveBox,
+  HiOutlineChartBar,
 } from "react-icons/hi2";
 import SidebarWidget from "./SidebarWidget";
 
@@ -69,6 +70,17 @@ const navItems: NavItem[] = [
     icon: <HiOutlineArchiveBox size={22} />,
     name: "Products",
     path: "/products",
+  },
+  {
+    icon: <HiOutlineChartBar size={22} />,
+    name: "Reports",
+    subItems: [
+      { name: "P&L", path: "/reports/profit-loss" },
+      { name: "Trial Balance", path: "/reports/trial-balance" },
+      { name: "Aged Receivables", path: "/reports/aged-receivables" },
+      { name: "Aged Payables", path: "/reports/aged-payables" },
+      { name: "Inventory Valuation", path: "/reports/inventory-valuation" },
+    ],
   },
   {
     icon: <UserCircleIcon />,

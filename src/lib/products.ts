@@ -78,6 +78,7 @@ export interface ProductStock {
   productId: string;
   productName?: string;
   totalQuantity: number;
+  totalStock: number;
   avgCost: number;
   totalValue: number;
   variants: ProductStockVariant[];

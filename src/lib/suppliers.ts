@@ -258,6 +258,38 @@ export interface CreateSupplierReturnDraftBody {
   idempotencyKey?: string;
 }
 
+export interface CreateCustomerReturnDraftBody {
+  customerId: string;
+  transactionDate: string;
+  lines: Array<{
+    sourceTransactionLineId: string;
+    quantity: number;
+  }>;
+  notes?: string;
+  idempotencyKey?: string;
+}
+
+export interface CreateInternalTransferDraftBody {
+  fromPaymentAccountId: string;
+  toPaymentAccountId: string;
+  amount: number;
+  transactionDate: string;
+  notes?: string;
+  idempotencyKey?: string;
+}
+
+export interface CreateAdjustmentDraftBody {
+  transactionDate: string;
+  lines: Array<{
+    variantId: string;
+    quantity: number;
+    direction: "IN" | "OUT";
+    reason: string;
+  }>;
+  notes?: string;
+  idempotencyKey?: string;
+}
+
 export interface PostTransactionBody {
   idempotencyKey?: string;
   paidNow?: number;
@@ -436,6 +468,33 @@ export function createSupplierReturnDraft(
   body: CreateSupplierReturnDraftBody
 ): Promise<ApiTransaction> {
   return apiRequest<ApiTransaction>("/transactions/supplier-returns/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createCustomerReturnDraft(
+  body: CreateCustomerReturnDraftBody
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>("/transactions/customer-returns/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createInternalTransferDraft(
+  body: CreateInternalTransferDraftBody
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>("/transactions/internal-transfers/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createAdjustmentDraft(
+  body: CreateAdjustmentDraftBody
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>("/transactions/adjustments/draft", {
     method: "POST",
     body: JSON.stringify(body),
   });

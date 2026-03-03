@@ -30,6 +30,21 @@ export default function NewTransactionPage() {
       return;
     }
 
+    if (type === "CUSTOMER_RETURN") {
+      router.replace("/transactions/customer-return");
+      return;
+    }
+
+    if (type === "INTERNAL_TRANSFER") {
+      router.replace("/transactions/internal-transfer");
+      return;
+    }
+
+    if (type === "ADJUSTMENT") {
+      router.replace("/transactions/stock-adjustment");
+      return;
+    }
+
     router.replace("/transactions/purchase");
   }, [router, searchParams]);
 

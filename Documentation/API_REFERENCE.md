@@ -708,6 +708,8 @@ Endpoints for managing product master data.
       search?: string;   // Optional, string (case-insensitive search in `name`, `sku`, `category`)
       status?: 'ACTIVE' | 'INACTIVE' | 'ALL'; // Optional, default 'ACTIVE'
       category?: string; // Optional, string (filter by category, case-insensitive)
+      sortBy?: 'name' | 'createdAt'; // Optional, default 'name'
+      sortOrder?: 'asc' | 'desc'; // Optional, default 'asc'
     }
     ```
 *   **Success Response:** `200 OK` (Paginated response)
@@ -1491,11 +1493,14 @@ Creates a DRAFT stock adjustment. Requires OWNER or ADMIN role.
     quantity: number;          // ≥ 1
     direction: 'IN' | 'OUT';
     reason: string;            // max 500 chars
+    unitCost?: number;         // Required when direction='IN'; omitted for OUT
   }>;
   notes?: string;
   idempotencyKey?: string;
 }
 ```
+
+**Rule:** Inbound adjustments (`direction='IN'`) now require `unitCost` so stock increases carry valuation. Outbound adjustments (`direction='OUT'`) remain quantity-only.
 
 ---
 
@@ -1578,7 +1583,7 @@ Edits a DRAFT transaction. The type of the transaction determines which fields a
     // For PURCHASE, SALE, ADJUSTMENT — full line replacement (deleteMany + createMany)
     variantId?: string;
     quantity?: number;
-    unitCost?: number;             // PURCHASE
+    unitCost?: number;             // PURCHASE, and required for ADJUSTMENT lines when direction='IN'
     unitPrice?: number;            // SALE
     discountAmount?: number;
     direction?: 'IN' | 'OUT';     // ADJUSTMENT only

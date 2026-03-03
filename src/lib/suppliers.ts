@@ -284,6 +284,7 @@ export interface CreateAdjustmentDraftBody {
     variantId: string;
     quantity: number;
     direction: "IN" | "OUT";
+    unitCost?: number;
     reason: string;
   }>;
   notes?: string;

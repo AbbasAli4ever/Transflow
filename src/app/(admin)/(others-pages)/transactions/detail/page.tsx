@@ -211,6 +211,23 @@ export default function TransactionDetailPage() {
     return Array.from(names);
   }, [transaction, accountMap]);
 
+  const updateEditLine = (lineKey: string, updates: Partial<EditLine>) => {
+    setEditForm((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        lines: current.lines.map((line) => (line._key === lineKey ? { ...line, ...updates } : line)),
+      };
+    });
+  };
+
+  const handleEditAdjustmentDirectionChange = (lineKey: string, direction: "IN" | "OUT") => {
+    updateEditLine(lineKey, {
+      direction,
+      ...(direction === "OUT" ? { unitCost: undefined } : {}),
+    });
+  };
+
   const initEditForm = async (tx: ApiTransaction) => {
     setEditError(null);
     if (tx.type === "PURCHASE" || tx.type === "SUPPLIER_PAYMENT" || tx.type === "SUPPLIER_RETURN") {
@@ -323,16 +340,54 @@ export default function TransactionDetailPage() {
         transaction.type === "SUPPLIER_RETURN" ||
         transaction.type === "CUSTOMER_RETURN"
       ) {
-        const lines = editForm.lines.map((l) => ({
-          lineId: l.lineId,
-          variantId: l.variantId,
-          quantity: l.quantity,
-          unitCost: l.unitCost,
-          unitPrice: l.unitPrice,
-          discountAmount: l.discountAmount,
-          direction: l.direction,
-          reason: l.reason,
-        }));
+        let lines: PatchTransactionLineDto[];
+        if (transaction.type === "ADJUSTMENT") {
+          lines = editForm.lines.map((l, index) => {
+            if (!l.lineId || !l.variantId) {
+              throw new Error(`Line ${index + 1}: missing adjustment line reference.`);
+            }
+            if (!Number.isFinite(Number(l.quantity)) || Number(l.quantity) < 1) {
+              throw new Error(`Line ${index + 1}: quantity must be at least 1.`);
+            }
+            if (!l.direction) {
+              throw new Error(`Line ${index + 1}: direction is required.`);
+            }
+            if (!l.reason?.trim()) {
+              throw new Error(`Line ${index + 1}: reason is required.`);
+            }
+            if (l.reason.trim().length > 500) {
+              throw new Error(`Line ${index + 1}: reason cannot exceed 500 characters.`);
+            }
+            if (l.direction === "IN") {
+              if (l.unitCost == null || !Number.isFinite(Number(l.unitCost))) {
+                throw new Error(`Line ${index + 1}: unit cost is required for IN adjustments.`);
+              }
+              if (!Number.isInteger(Number(l.unitCost)) || Number(l.unitCost) < 1) {
+                throw new Error(`Line ${index + 1}: unit cost must be a whole number of at least 1.`);
+              }
+            }
+
+            return {
+              lineId: l.lineId,
+              variantId: l.variantId,
+              quantity: Math.trunc(Number(l.quantity)),
+              direction: l.direction,
+              ...(l.direction === "IN" ? { unitCost: Math.trunc(Number(l.unitCost)) } : {}),
+              reason: l.reason.trim(),
+            };
+          });
+        } else {
+          lines = editForm.lines.map((l) => ({
+            lineId: l.lineId,
+            variantId: l.variantId,
+            quantity: l.quantity,
+            unitCost: l.unitCost,
+            unitPrice: l.unitPrice,
+            discountAmount: l.discountAmount,
+            direction: l.direction,
+            reason: l.reason,
+          }));
+        }
         payload.lines = lines;
       }
 
@@ -340,8 +395,12 @@ export default function TransactionDetailPage() {
       await loadTransaction(transaction.id);
       setEditOpen(false);
     } catch (err) {
-      const apiErr = err as ApiError;
-      setEditError(apiErr.message ?? "Failed to update draft.");
+      if (err instanceof Error && !(err as { statusCode?: number }).statusCode) {
+        setEditError(err.message);
+      } else {
+        const apiErr = err as ApiError;
+        setEditError(apiErr.message ?? "Failed to update draft.");
+      }
     } finally {
       setEditSaving(false);
     }
@@ -508,7 +567,12 @@ export default function TransactionDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                {lines.map((line) => (
+                {lines.map((line) => {
+                  const adjustmentLine = line as typeof line & { direction?: "IN" | "OUT" };
+                  const isAdjustmentOut =
+                    transaction.type === "ADJUSTMENT" && adjustmentLine.direction === "OUT";
+
+                  return (
                   <tr key={line.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40">
                     <td className="py-3.5 pr-4 text-sm text-gray-700 dark:text-gray-200">
                       {line.variant?.product?.name ?? "—"}
@@ -520,7 +584,9 @@ export default function TransactionDetailPage() {
                       {line.quantity}
                     </td>
                     <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300">
-                      {formatPKR(transaction.type === "SALE" ? line.unitPrice : line.unitCost)}
+                      {isAdjustmentOut
+                        ? "—"
+                        : formatPKR(transaction.type === "SALE" ? line.unitPrice : line.unitCost)}
                     </td>
                     <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300">
                       {formatPKR(line.discountAmount ?? 0)}
@@ -529,7 +595,8 @@ export default function TransactionDetailPage() {
                       {formatPKR(line.lineTotal)}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr className="border-t border-gray-100 dark:border-gray-700">
@@ -716,6 +783,115 @@ export default function TransactionDetailPage() {
                   rows={3}
                 />
               </div>
+
+              {transaction.type === "ADJUSTMENT" && editForm.lines.length > 0 && (
+                <div>
+                  <div className="mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Adjustment Lines
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      IN lines require unit cost. OUT lines remain quantity-only.
+                    </p>
+                  </div>
+                  <div className="space-y-3 rounded-2xl border border-gray-200 p-4 dark:border-gray-700">
+                    {editForm.lines.map((line, index) => {
+                      const originalLine = transaction.transactionLines?.[index];
+                      return (
+                        <div
+                          key={line._key}
+                          className="rounded-2xl border border-gray-100 p-4 dark:border-gray-800"
+                        >
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                {originalLine?.variant?.product?.name ?? "Adjustment line"}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {originalLine?.variant?.size ?? "—"}
+                              </p>
+                            </div>
+                            <span className="text-xs text-gray-400">Line {index + 1}</span>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <div>
+                              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">
+                                Direction
+                              </label>
+                              <select
+                                value={line.direction ?? "IN"}
+                                onChange={(e) =>
+                                  handleEditAdjustmentDirectionChange(
+                                    line._key,
+                                    e.target.value as "IN" | "OUT"
+                                  )
+                                }
+                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                              >
+                                <option value="IN">IN</option>
+                                <option value="OUT">OUT</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">
+                                Quantity
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={line.quantity ?? 1}
+                                onChange={(e) =>
+                                  updateEditLine(line._key, {
+                                    quantity: Math.max(1, Math.trunc(Number(e.target.value || 1))),
+                                  })
+                                }
+                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                              />
+                            </div>
+                            <div className="sm:col-span-2 lg:col-span-1">
+                              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">
+                                Unit Cost
+                              </label>
+                              {line.direction === "IN" ? (
+                                <input
+                                  type="number"
+                                  min={1}
+                                  step={1}
+                                  value={line.unitCost ?? ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    updateEditLine(line._key, {
+                                      unitCost: value === "" ? undefined : Math.max(1, Math.trunc(Number(value))),
+                                    });
+                                  }}
+                                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                  placeholder="Required for IN"
+                                />
+                              ) : (
+                                <div className="rounded-xl border border-dashed border-gray-200 px-4 py-2.5 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                  Uses avg cost at posting.
+                                </div>
+                              )}
+                            </div>
+                            <div className="sm:col-span-2 lg:col-span-4">
+                              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">
+                                Reason
+                              </label>
+                              <input
+                                value={line.reason ?? ""}
+                                maxLength={500}
+                                onChange={(e) => updateEditLine(line._key, { reason: e.target.value })}
+                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                placeholder="Reason for adjustment"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="mt-6 flex justify-end gap-2">

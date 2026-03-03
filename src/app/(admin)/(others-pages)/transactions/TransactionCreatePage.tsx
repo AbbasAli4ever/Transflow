@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -121,6 +122,119 @@ function FieldLabel({
       {children}
       {required && <span className="ml-0.5 text-error-500">*</span>}
     </label>
+  );
+}
+
+// Product Dropdown Cell Component with Portal
+function ProductDropdownCell({
+  line,
+  products,
+  productsLoading,
+  isActive,
+  inputClass,
+  onQueryChange,
+  onFocus,
+  onSelectProduct,
+  onBlur,
+}: {
+  line: any;
+  products: ApiProduct[];
+  productsLoading: boolean;
+  isActive: boolean;
+  inputClass: string;
+  onQueryChange: (value: string) => void;
+  onFocus: () => void;
+  onSelectProduct: (product: ApiProduct) => void;
+  onBlur: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (isActive && inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 8, // 8px gap (mt-2)
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    } else {
+      setDropdownPosition(null);
+    }
+  }, [isActive]);
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (
+        inputRef.current && 
+        !inputRef.current.contains(event.target as Node) &&
+        !(event.target as Element)?.closest('[data-dropdown="product"]')
+      ) {
+        onBlur();
+      }
+    }
+
+    if (isActive) {
+      document.addEventListener("mousedown", handleOutsideClick);
+      return () => document.removeEventListener("mousedown", handleOutsideClick);
+    }
+  }, [isActive, onBlur]);
+
+  return (
+    <>
+      <div className="relative min-w-[220px]">
+        <div className="relative">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <HiOutlineMagnifyingGlass size={16} />
+          </span>
+          <input
+            ref={inputRef}
+            value={line.productQuery}
+            onChange={(e) => onQueryChange(e.target.value)}
+            onFocus={onFocus}
+            placeholder={productsLoading ? "Loading products..." : "Search product"}
+            className={`${inputClass} pl-10`}
+            disabled={productsLoading}
+          />
+        </div>
+      </div>
+      
+      {isActive &&
+        dropdownPosition &&
+        typeof window !== "undefined" &&
+        createPortal(
+          <div
+            data-dropdown="product"
+            className="fixed z-[9999] max-h-64 overflow-auto rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900"
+            style={{
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+            }}
+          >
+            {products.length === 0 ? (
+              <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No products found.</p>
+            ) : (
+              products.map((product) => (
+                <button
+                  key={product.id}
+                  type="button"
+                  onClick={() => onSelectProduct(product)}
+                  className="block w-full rounded-xl px-3 py-2 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]"
+                >
+                  <span className="block text-sm font-medium text-gray-800 dark:text-white/90">{product.name}</span>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400">{product.sku || "No SKU"}</span>
+                </button>
+              ))
+            )}
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 
@@ -930,44 +1044,17 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
                         return (
                           <tr key={line.id} className="align-top">
                             <td className="px-4 py-4">
-                              <div className="relative min-w-[220px]">
-                                <div className="relative">
-                                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                    <HiOutlineMagnifyingGlass size={16} />
-                                  </span>
-                                  <input
-                                    value={line.productQuery}
-                                    onChange={(e) => handleProductQueryChange(line.id, e.target.value)}
-                                    onFocus={() => setActiveProductPickerId(line.id)}
-                                    placeholder={productsLoading ? "Loading products..." : "Search product"}
-                                    className={`${inputClass} pl-10`}
-                                    disabled={productsLoading}
-                                  />
-                                </div>
-                                {activeProductPickerId === line.id && (
-                                  <div className="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900">
-                                    {productMatches.length === 0 ? (
-                                      <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No products found.</p>
-                                    ) : (
-                                      productMatches.map((product) => (
-                                        <button
-                                          key={product.id}
-                                          type="button"
-                                          onClick={() => void handleSelectProduct(line.id, product)}
-                                          className="block w-full rounded-xl px-3 py-2 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]"
-                                        >
-                                          <span className="block text-sm font-medium text-gray-800 dark:text-white/90">
-                                            {product.name}
-                                          </span>
-                                          <span className="block text-xs text-gray-500 dark:text-gray-400">
-                                            {product.sku || "No SKU"}
-                                          </span>
-                                        </button>
-                                      ))
-                                    )}
-                                  </div>
-                                )}
-                              </div>
+                              <ProductDropdownCell
+                                line={line}
+                                products={productMatches}
+                                productsLoading={productsLoading}
+                                isActive={activeProductPickerId === line.id}
+                                inputClass={inputClass}
+                                onQueryChange={(value) => handleProductQueryChange(line.id, value)}
+                                onFocus={() => setActiveProductPickerId(line.id)}
+                                onSelectProduct={(product) => void handleSelectProduct(line.id, product)}
+                                onBlur={() => setActiveProductPickerId(null)}
+                              />
                             </td>
                             <td className="px-4 py-4">
                               <div className="min-w-[220px]">

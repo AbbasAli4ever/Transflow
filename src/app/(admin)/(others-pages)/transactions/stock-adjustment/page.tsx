@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -38,6 +39,7 @@ type AdjustmentLine = {
   variantId: string;
   direction: AdjustmentDirection;
   quantity: number;
+  unitCost: number | "";
   reason: string;
 };
 
@@ -46,6 +48,119 @@ type StockVariant = {
   size: string;
   currentStock: number;
 };
+
+// Product Dropdown Cell Component with Portal
+function ProductDropdownCell({
+  line,
+  products,
+  loading,
+  isActive,
+  inputClass,
+  onQueryChange,
+  onFocus,
+  onSelectProduct,
+  onBlur,
+}: {
+  line: AdjustmentLine;
+  products: ApiProduct[];
+  loading: boolean;
+  isActive: boolean;
+  inputClass: string;
+  onQueryChange: (value: string) => void;
+  onFocus: () => void;
+  onSelectProduct: (product: ApiProduct) => void;
+  onBlur: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (isActive && inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 8, // 8px gap (mt-2)
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    } else {
+      setDropdownPosition(null);
+    }
+  }, [isActive]);
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (
+        inputRef.current && 
+        !inputRef.current.contains(event.target as Node) &&
+        !(event.target as Element)?.closest('[data-dropdown="product"]')
+      ) {
+        onBlur();
+      }
+    }
+
+    if (isActive) {
+      document.addEventListener("mousedown", handleOutsideClick);
+      return () => document.removeEventListener("mousedown", handleOutsideClick);
+    }
+  }, [isActive, onBlur]);
+
+  return (
+    <>
+      <div className="relative min-w-[220px]">
+        <div className="relative">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <HiOutlineMagnifyingGlass size={16} />
+          </span>
+          <input
+            ref={inputRef}
+            value={line.productQuery}
+            onChange={(e) => onQueryChange(e.target.value)}
+            onFocus={onFocus}
+            placeholder={loading ? "Loading products..." : "Search product"}
+            className={`${inputClass} pl-10`}
+            disabled={loading}
+          />
+        </div>
+      </div>
+      
+      {isActive &&
+        dropdownPosition &&
+        typeof window !== "undefined" &&
+        createPortal(
+          <div
+            data-dropdown="product"
+            className="fixed z-[9999] max-h-64 overflow-auto rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900"
+            style={{
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+            }}
+          >
+            {products.length === 0 ? (
+              <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No products found.</p>
+            ) : (
+              products.map((product) => (
+                <button
+                  key={product.id}
+                  type="button"
+                  onClick={() => onSelectProduct(product)}
+                  className="block w-full rounded-xl px-3 py-2 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]"
+                >
+                  <span className="block text-sm font-medium text-gray-800 dark:text-white/90">{product.name}</span>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400">{product.sku || "No SKU"}</span>
+                </button>
+              ))
+            )}
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}
 
 function generateId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -60,6 +175,22 @@ function toLocalDate(date: Date) {
   ).padStart(2, "0")}`;
 }
 
+function getCurrentDateSafe() {
+  // Use a date that's definitely not in the future relative to server
+  // by going back one day if it's within first few hours of the day
+  const now = new Date();
+  const currentHour = now.getHours();
+  
+  // If it's very early in the morning (0-3 AM), use previous day to avoid timezone issues
+  if (currentHour >= 0 && currentHour < 3) {
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return toLocalDate(yesterday);
+  }
+  
+  return toLocalDate(now);
+}
+
 function createEmptyLine(): AdjustmentLine {
   return {
     id: generateId(),
@@ -68,6 +199,7 @@ function createEmptyLine(): AdjustmentLine {
     variantId: "",
     direction: "IN",
     quantity: 1,
+    unitCost: "",
     reason: "",
   };
 }
@@ -104,7 +236,7 @@ export default function StockAdjustmentPage() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [activeProductPickerId, setActiveProductPickerId] = useState<string | null>(null);
 
-  const [transactionDate, setTransactionDate] = useState(toLocalDate(new Date()));
+  const [transactionDate, setTransactionDate] = useState(getCurrentDateSafe());
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
@@ -170,6 +302,20 @@ export default function StockAdjustmentPage() {
     setLines((current) => current.map((line) => (line.id === lineId ? { ...line, ...updates } : line)));
   };
 
+  const handleDirectionChange = (lineId: string, direction: AdjustmentDirection) => {
+    setLines((current) =>
+      current.map((line) =>
+        line.id === lineId
+          ? {
+              ...line,
+              direction,
+              unitCost: direction === "IN" ? line.unitCost : "",
+            }
+          : line
+      )
+    );
+  };
+
   const handleProductQueryChange = (lineId: string, nextQuery: string) => {
     setLines((current) =>
       current.map((line) =>
@@ -202,10 +348,15 @@ export default function StockAdjustmentPage() {
     const totalLines = lines.length;
     const totalIn = lines.reduce((sum, line) => sum + (line.direction === "IN" ? line.quantity : 0), 0);
     const totalOut = lines.reduce((sum, line) => sum + (line.direction === "OUT" ? line.quantity : 0), 0);
+    const inboundValue = lines.reduce((sum, line) => {
+      if (line.direction !== "IN" || line.unitCost === "") return sum;
+      return sum + line.quantity * line.unitCost;
+    }, 0);
     return {
       totalLines,
       totalIn,
       totalOut,
+      inboundValue,
       net: totalIn - totalOut,
     };
   }, [lines]);
@@ -234,6 +385,14 @@ export default function StockAdjustmentPage() {
         if (!selectedVariant) throw new Error(`Line ${index + 1}: select a size / variant.`);
         if (selectedVariant.status !== "ACTIVE") throw new Error(`Line ${index + 1}: the selected variant is not active.`);
         if (!Number.isFinite(line.quantity) || line.quantity < 1) throw new Error(`Line ${index + 1}: quantity must be at least 1.`);
+        if (line.direction === "IN") {
+          if (line.unitCost === "" || !Number.isFinite(Number(line.unitCost))) {
+            throw new Error(`Line ${index + 1}: unit cost is required for IN adjustments.`);
+          }
+          if (!Number.isInteger(Number(line.unitCost)) || Number(line.unitCost) < 1) {
+            throw new Error(`Line ${index + 1}: unit cost must be a whole number of at least 1.`);
+          }
+        }
         if (!line.reason.trim()) throw new Error(`Line ${index + 1}: reason is required.`);
         if (line.reason.trim().length > 500) throw new Error(`Line ${index + 1}: reason cannot exceed 500 characters.`);
 
@@ -249,6 +408,7 @@ export default function StockAdjustmentPage() {
           variantId: line.variantId,
           quantity: Math.trunc(line.quantity),
           direction: line.direction,
+          ...(line.direction === "IN" ? { unitCost: Math.trunc(Number(line.unitCost)) } : {}),
           reason: line.reason.trim(),
         };
       });
@@ -332,6 +492,9 @@ export default function StockAdjustmentPage() {
               <div>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Adjustment Details</h2>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Set the date, note the reason, and add one or more product adjustments.</p>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  IN adjustments carry value now, so unit cost is required whenever stock is added in.
+                </p>
               </div>
               <Button size="sm" variant="outline" onClick={addLine} startIcon={<HiOutlinePlus size={16} />}>
                 Add Line
@@ -376,6 +539,7 @@ export default function StockAdjustmentPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Size / Variant</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Direction</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Qty</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Unit Cost</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Reason</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Action</th>
                   </tr>
@@ -396,40 +560,17 @@ export default function StockAdjustmentPage() {
                     return (
                       <tr key={line.id} className="align-top">
                         <td className="px-4 py-4">
-                          <div className="relative min-w-[220px]">
-                            <div className="relative">
-                              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                <HiOutlineMagnifyingGlass size={16} />
-                              </span>
-                              <input
-                                value={line.productQuery}
-                                onChange={(e) => handleProductQueryChange(line.id, e.target.value)}
-                                onFocus={() => setActiveProductPickerId(line.id)}
-                                placeholder={loading ? "Loading products..." : "Search product"}
-                                className={`${inputClass} pl-10`}
-                                disabled={loading}
-                              />
-                            </div>
-                            {activeProductPickerId === line.id && (
-                              <div className="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900">
-                                {productMatches.length === 0 ? (
-                                  <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No products found.</p>
-                                ) : (
-                                  productMatches.map((product) => (
-                                    <button
-                                      key={product.id}
-                                      type="button"
-                                      onClick={() => void handleSelectProduct(line.id, product)}
-                                      className="block w-full rounded-xl px-3 py-2 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]"
-                                    >
-                                      <span className="block text-sm font-medium text-gray-800 dark:text-white/90">{product.name}</span>
-                                      <span className="block text-xs text-gray-500 dark:text-gray-400">{product.sku || "No SKU"}</span>
-                                    </button>
-                                  ))
-                                )}
-                              </div>
-                            )}
-                          </div>
+                          <ProductDropdownCell
+                            line={line}
+                            products={productMatches}
+                            loading={loading}
+                            isActive={activeProductPickerId === line.id}
+                            inputClass={inputClass}
+                            onQueryChange={(value) => handleProductQueryChange(line.id, value)}
+                            onFocus={() => setActiveProductPickerId(line.id)}
+                            onSelectProduct={(product) => void handleSelectProduct(line.id, product)}
+                            onBlur={() => setActiveProductPickerId(null)}
+                          />
                         </td>
                         <td className="px-4 py-4">
                           <div className="min-w-[220px]">
@@ -459,7 +600,7 @@ export default function StockAdjustmentPage() {
                         <td className="px-4 py-4">
                           <select
                             value={line.direction}
-                            onChange={(e) => updateLine(line.id, { direction: e.target.value as AdjustmentDirection })}
+                            onChange={(e) => handleDirectionChange(line.id, e.target.value as AdjustmentDirection)}
                             className={`${inputClass} min-w-[130px] ${line.direction === "IN" ? "border-success-200 text-success-700" : "border-error-200 text-error-700"}`}
                           >
                             <option value="IN">IN</option>
@@ -474,6 +615,37 @@ export default function StockAdjustmentPage() {
                             onChange={(e) => updateLine(line.id, { quantity: Math.max(1, Number(e.target.value || 1)) })}
                             className={`${inputClass} min-w-[96px]`}
                           />
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="min-w-[180px]">
+                            {line.direction === "IN" ? (
+                              <>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  step={1}
+                                  value={line.unitCost}
+                                  onChange={(e) => {
+                                    const nextValue = e.target.value;
+                                    updateLine(line.id, {
+                                      unitCost:
+                                        nextValue === "" ? "" : Math.max(1, Math.trunc(Number(nextValue))),
+                                    });
+                                  }}
+                                  className={inputClass}
+                                  placeholder="Enter unit cost"
+                                />
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                  Required for stock added in. Value impact:{" "}
+                                  {line.unitCost === "" ? "—" : formatPKR(line.quantity * Number(line.unitCost))}
+                                </p>
+                              </>
+                            ) : (
+                              <div className="rounded-xl border border-dashed border-gray-200 px-4 py-2.5 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                Uses current avg cost at posting.
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-4">
                           <div className="min-w-[240px]">
@@ -537,6 +709,10 @@ export default function StockAdjustmentPage() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500 dark:text-gray-400">Total OUT</span>
                 <span className="font-medium text-error-700 dark:text-error-400">{totals.totalOut}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500 dark:text-gray-400">Inbound Value</span>
+                <span className="font-medium text-gray-800 dark:text-white/90">{formatPKR(totals.inboundValue)}</span>
               </div>
               <div className="rounded-2xl bg-gray-50 px-4 py-4 dark:bg-gray-900/40">
                 <div className="flex items-center justify-between gap-4">

@@ -462,6 +462,7 @@ Same pattern as Screen 12, mirrored for customers.
 | Size/Variant dropdown | — | From `product.variants[]` (active only) |
 | Direction | `lines[].direction` | `"IN"` or `"OUT"` |
 | Quantity | `lines[].quantity` | Min 1 |
+| Unit Cost | `lines[].unitCost` | Required when direction=`IN`; omit for `OUT` |
 | Reason | `lines[].reason` | Max 500 chars |
 | Current stock hint | `GET /api/v1/products/:id/stock` | Per-variant `currentStock` |
 | OUT warning | **Frontend check** | If direction=OUT and qty > currentStock |
@@ -476,7 +477,8 @@ Body:
 {
   "transactionDate": "2026-02-18",
   "lines": [
-    { "variantId": "uuid", "quantity": 3, "direction": "OUT", "reason": "Damaged in warehouse" }
+    { "variantId": "uuid", "quantity": 3, "direction": "OUT", "reason": "Damaged in warehouse" },
+    { "variantId": "uuid", "quantity": 5, "direction": "IN", "unitCost": 1200, "reason": "Opening stock count" }
   ],
   "notes": "...",
   "idempotencyKey": "..."
@@ -715,6 +717,7 @@ Same as Screen 20, for customers.
 | Search | `?search=text` | Searches name, SKU, category |
 | Status filter | `?status=ACTIVE` | |
 | Category filter | `?category=text` | |
+| Sort | `?sortBy=name&sortOrder=asc` (or `createdAt`) | |
 | Pagination | `?page=1&limit=20` | |
 
 ### Table Columns

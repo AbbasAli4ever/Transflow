@@ -1,0 +1,93 @@
+[
+  {
+    "tc_id": "TC-601",
+    "name": "[TC-601] Create Sale Draft (TX-S1)",
+    "phase": "Phase 3",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "High",
+    "assignee": null,
+    "steps": "1. Go to /transactions/new → select 'Sale'\n2. Fill:\n   - Customer: Ahmed Traders (C1)\n   - Date: 2026-03-10\n   - Delivery Fee: 300\n   - Notes: First sale test\n3. Add line 1: P1-V1 (Small S), Qty 8, Unit Price 2000, Discount 500\n4. Add line 2: P1-V2 (Medium), Qty 3, Unit Price 2200, Discount 0\n5. Verify totals: Line1=(8×2000)-500=15500, Line2=6600, Subtotal=22100, Delivery=300, Total=22400\n6. Save as Draft (do NOT post)",
+    "expected_result": "- Status: DRAFT, Total: PKR 22,400\n- C1 balance still PKR 0.00\n- P1-V1 stock still 30\n- Dashboard receivables still PKR 0",
+    "actual_result": "",
+    "notes": "RECORD TX-S1 ID. Draft must NOT affect any balances or stock."
+  },
+  {
+    "tc_id": "TC-602",
+    "name": "[TC-602] View Sale Draft in List & Filter Tests",
+    "phase": "Phase 3",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "Medium",
+    "assignee": null,
+    "steps": "1. Go to /transactions\n2. Verify TX-S1: status DRAFT, type SALE, customer Ahmed Traders, PKR 22,400\n3. Filter type=SALE → TX-S1 visible\n4. Filter type=PURCHASE → TX-S1 NOT visible\n5. Filter status=DRAFT → TX-S1 visible\n6. Filter status=POSTED → TX-S1 NOT visible",
+    "expected_result": "- TX-S1 appears correctly in list\n- Type and status filters isolate correctly\n- No cross-contamination with purchase transactions",
+    "actual_result": "",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-603",
+    "name": "[TC-603] Post Sale TX-S1 and Verify All Side Effects",
+    "phase": "Phase 3",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "Critical",
+    "assignee": null,
+    "steps": "1. Open TX-S1 → click 'Post' → confirm\n2. Verify status = POSTED, document number assigned (e.g. SAL-001)\n3. Check /customer/detail/[C1_ID]:\n   - Balance = PKR 22,400.00\n   - Ledger tab: 1 entry dated 2026-03-10, amount 22,400, running balance 22,400\n   - Open Documents: TX-S1 listed, remaining PKR 22,400\n4. Check /products/detail/[P1_ID]:\n   - P1-V1 stock = 22 (30-8), P1-V2 stock = 2 (5-3)\n   - Avg Cost unchanged (P1-V1=1500, P1-V2=1100)\n   - Movements: SALE_OUT entries for P1-V1 (-8) and P1-V2 (-3)\n5. Check /transactions: TX-S1 status = POSTED\n6. Check / Dashboard:\n   - Receivables = PKR 22,400\n   - Cash & Bank = PKR 170,000 (unchanged)\n7. Check /reports/aged-receivables (date 2026-03-14): C1 = PKR 22,400",
+    "expected_result": "- C1 balance: PKR 22,400\n- P1-V1 stock: 22, P1-V2 stock: 2\n- Avg cost unchanged\n- Dashboard receivables: PKR 22,400\n- Cash & Bank: unchanged PKR 170,000",
+    "actual_result": "",
+    "notes": "Key: Avg cost must NOT change on sale — it only changes on purchase."
+  },
+  {
+    "tc_id": "TC-604",
+    "name": "[TC-604] Post Second Sale TX-S2 and Verify Accumulation",
+    "phase": "Phase 3",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "High",
+    "assignee": null,
+    "steps": "1. Create sale: C1, Date 2026-03-12, No delivery\n   Line: P1-V1, Qty 5, Price 2000. Total = PKR 10,000\n2. Save Draft → Post\n3. Check C1 balance = PKR 32,400 (22,400 + 10,000)\n4. Check C1 Ledger: 2 entries, running balance 32,400\n5. Check C1 Open Documents: 2 invoices (TX-S1 PKR 22,400 + TX-S2 PKR 10,000)\n6. Check P1-V1 stock = 17 (22-5)\n7. Dashboard Receivables = PKR 32,400",
+    "expected_result": "- C1 balance: PKR 32,400\n- P1-V1 stock: 17\n- 2 ledger entries, 2 open invoices",
+    "actual_result": "",
+    "notes": "RECORD TX-S2 ID"
+  },
+  {
+    "tc_id": "TC-605",
+    "name": "[TC-605] Post Sale TX-S3 to C2 and Verify Isolation",
+    "phase": "Phase 3",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "High",
+    "assignee": null,
+    "steps": "1. Create sale: C2 (Zara Retail), Date 2026-03-13, Delivery 200\n   Line: P2-V1 (6mm), Qty 20, Price 100. Total = (20×100)+200 = PKR 2,200\n2. Save Draft → Post\n3. Check C2 balance = PKR 2,200\n4. Verify C1 balance still PKR 32,400 (not affected)\n5. Check P2-V1 stock = 80 (100-20)\n6. Dashboard Receivables = PKR 34,600 (32,400+2,200), customer count = 2",
+    "expected_result": "- C2 balance: PKR 2,200\n- C1 balance: PKR 32,400 (isolated)\n- P2-V1 stock: 80\n- Dashboard receivables: PKR 34,600",
+    "actual_result": "",
+    "notes": "RECORD TX-S3 ID"
+  },
+  {
+    "tc_id": "TC-606",
+    "name": "[TC-606] Oversell Test — Sell Beyond Available Stock",
+    "phase": "Phase 3",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "High",
+    "assignee": null,
+    "steps": "1. Create sale: C1, line: P1-V2 (Medium), Qty 999, Price 2200\n   (P1-V2 only has 2 Meters in stock)\n2. Test A: Save as Draft — note if allowed\n3. Test B: Try to Post — note if blocked or allowed\n4. If posted: check if P1-V2 stock goes negative\n5. Delete the draft/void if posting was allowed",
+    "expected_result": "- Expected: Post should be blocked with 'Insufficient stock' error\n- P1-V2 stock must not go below 0\n- If negative stock is created: CRITICAL BUG",
+    "actual_result": "",
+    "notes": "Document exact behavior: blocked at draft, blocked at post, or allowed. All cases should be logged."
+  },
+  {
+    "tc_id": "TC-607",
+    "name": "[TC-607] Reports Spot-Check After Sales",
+    "phase": "Phase 3",
+    "module": "Reports",
+    "status": "Not Started",
+    "priority": "High",
+    "assignee": null,
+    "steps": "1. /reports/aged-receivables, date 2026-03-14:\n   C1 = PKR 32,400 (0-30 days), C2 = PKR 2,200, Total = PKR 34,600\n2. /reports/inventory-valuation, date 2026-03-14:\n   P1-V1 qty17 val25500, P1-V2 qty2 val2200, P2-V1 qty80 val4000, P2-V2 qty50 val4000, Total = PKR 35,700\n3. /reports/profit-loss, range 2026-03-10 to 2026-03-14:\n   Revenue = PKR 34,600, Gross Profit must be positive\n4. /reports/trial-balance, date 2026-03-14:\n   AR ~PKR 34,600 Dr, AP ~PKR 61,000 Cr, Inventory ~PKR 35,700, Balanced",
+    "expected_result": "- Aged Receivables total: PKR 34,600\n- Inventory Valuation total: PKR 35,700\n- P&L revenue: PKR 34,600, gross profit positive\n- Trial Balance: balanced",
+    "actual_result": "",
+    "notes": ""
+  }
+]

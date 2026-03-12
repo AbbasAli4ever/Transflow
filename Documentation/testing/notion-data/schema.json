@@ -1,0 +1,58 @@
+{
+  "description": "Notion database schema for Transflow testing curriculum. Create two databases: Test Cases and Bug Reports, then link them via a Relation property.",
+
+  "databases": {
+    "test_cases": {
+      "name": "Transflow — Test Cases",
+      "description": "One record per test case. Used as the QA task board.",
+      "properties": {
+        "name":            { "type": "title",    "description": "Format: [TC-XXX] Short description" },
+        "tc_id":           { "type": "text",     "description": "e.g. TC-101" },
+        "phase":           { "type": "select",   "options": ["Phase 1","Phase 2","Phase 3","Phase 4","Phase 5","Phase 6","Phase 7","Phase 8"] },
+        "module":          { "type": "select",   "options": ["Supplier","Customer","Product","Payment Account","Transaction","Reports","Dashboard","Auth","UI"] },
+        "status":          { "type": "select",   "options": ["Not Started","In Progress","Passed","Failed","Blocked"], "default": "Not Started" },
+        "priority":        { "type": "select",   "options": ["Critical","High","Medium","Low"] },
+        "assignee":        { "type": "person",   "description": "Tester assigned to this test case" },
+        "steps":           { "type": "text",     "description": "Exact steps to execute the test" },
+        "expected_result": { "type": "text",     "description": "What should happen — exact values" },
+        "actual_result":   { "type": "text",     "description": "Filled in by tester when running" },
+        "bugs_found":      { "type": "relation", "linked_db": "bug_reports", "description": "Bug report(s) created from this test" },
+        "notes":           { "type": "text",     "description": "Important context, IDs to record, etc." }
+      },
+      "board_views": [
+        { "name": "Main Board",     "group_by": "status" },
+        { "name": "By Phase",       "group_by": "phase" },
+        { "name": "By Module",      "group_by": "module" },
+        { "name": "By Assignee",    "group_by": "assignee" },
+        { "name": "Failed Tests",   "type": "table", "filter": "status = Failed" }
+      ]
+    },
+
+    "bug_reports": {
+      "name": "Transflow — Bug Reports",
+      "description": "One record per bug found during testing. Used as the developer task board.",
+      "properties": {
+        "name":               { "type": "title",    "description": "Format: [BUG-PX] Short description" },
+        "module":             { "type": "select",   "options": ["Supplier","Customer","Product","Payment Account","Transaction","Reports","Dashboard","Auth","UI"] },
+        "severity":           { "type": "select",   "options": ["Critical","High","Medium","Low"] },
+        "status":             { "type": "select",   "options": ["Open","In Progress","Fixed","Verified","Closed"], "default": "Open" },
+        "assigned_to":        { "type": "person",   "description": "Developer fixing this bug" },
+        "reported_by":        { "type": "person",   "description": "Tester who found it" },
+        "phase":              { "type": "select",   "options": ["Phase 1","Phase 2","Phase 3","Phase 4","Phase 5","Phase 6","Phase 7","Phase 8"] },
+        "found_in_tc":        { "type": "relation", "linked_db": "test_cases", "description": "Which test case found this bug" },
+        "steps_to_reproduce": { "type": "text" },
+        "expected":           { "type": "text" },
+        "actual":             { "type": "text" },
+        "date_found":         { "type": "date" },
+        "notes":              { "type": "text" }
+      },
+      "board_views": [
+        { "name": "Dev Board",      "group_by": "status" },
+        { "name": "By Severity",    "group_by": "severity" },
+        { "name": "By Module",      "group_by": "module" },
+        { "name": "Open Bugs",      "type": "table", "filter": "status = Open" },
+        { "name": "Critical Bugs",  "type": "table", "filter": "severity = Critical" }
+      ]
+    }
+  }
+}

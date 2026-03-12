@@ -252,7 +252,7 @@ export default function CustomerReturnPage() {
         const quantity = Math.max(0, quantities[line.lineId] ?? 0);
         if (quantity <= 0) return null;
         const sourceLine = linesById.get(line.lineId);
-        const derivedUnit = sourceLine ? (sourceLine.quantity > 0 ? sourceLine.lineTotal / sourceLine.quantity : 0) : 0;
+        const derivedUnit = sourceLine ? (sourceLine.quantity > 0 ? ( sourceLine.lineTotal + sourceLine.discountAmount ) / sourceLine.quantity : 0) : 0;
         return {
           ...line,
           quantity,

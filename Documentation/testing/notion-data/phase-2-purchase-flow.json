@@ -1,0 +1,93 @@
+[
+  {
+    "tc_id": "TC-501",
+    "name": "[TC-501] Create Purchase Draft (TX-P1)",
+    "phase": "Phase 2",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "High",
+    "assignee": null,
+    "steps": "1. Go to /transactions/new → select 'Purchase'\n2. Fill:\n   - Supplier: Karachi Fabrics Ltd (S1)\n   - Date: 2026-03-01\n   - Delivery Fee: 500\n   - Notes: First purchase test\n3. Add line 1: P1-V1 (Small S), Qty 10, Unit Cost 1500, Discount 0\n4. Add line 2: P1-V2 (Medium), Qty 5, Unit Cost 1100, Discount 0\n5. Verify totals in form: Line1=15000, Line2=5500, Subtotal=20500, Delivery=500, Total=21000\n6. Click 'Save as Draft' (do NOT post yet)",
+    "expected_result": "- Status: DRAFT\n- Type: PURCHASE, Supplier: Karachi Fabrics Ltd, Total: PKR 21,000.00\n- S1 balance still PKR 0.00\n- P1-V1 stock still 0\n- Dashboard payables unchanged",
+    "actual_result": "",
+    "notes": "RECORD TX-P1 ID. Draft must NOT affect any balances or stock."
+  },
+  {
+    "tc_id": "TC-502",
+    "name": "[TC-502] View Draft in Transaction List & Edit",
+    "phase": "Phase 2",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "Medium",
+    "assignee": null,
+    "steps": "1. Go to /transactions → verify TX-P1 shows DRAFT, type PURCHASE, PKR 21,000\n2. Filter type=PURCHASE → TX-P1 visible\n3. Filter status=POSTED → TX-P1 NOT visible\n4. Open TX-P1 → Edit\n5. Change Line 1 unit cost from 1500 to 1500 (no change needed, already 1500)\n   Note: in TC-501 we set cost to 1500, total is already 21000. Skip edit or verify edit works by changing delivery fee to 0 and back.\n6. Verify total recalculates correctly on edit",
+    "expected_result": "- TX-P1 visible in list with DRAFT status\n- Type/status filters work correctly\n- Edit saves correctly, total recalculates",
+    "actual_result": "",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-503",
+    "name": "[TC-503] Post Purchase TX-P1 and Verify All Side Effects",
+    "phase": "Phase 2",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "Critical",
+    "assignee": null,
+    "steps": "1. Open TX-P1 → click 'Post' → confirm\n2. Verify status = POSTED, document number assigned (e.g. PUR-001)\n3. Check /supplier/detail/[S1_ID]:\n   - Balance card = PKR 21,000.00\n   - Ledger tab: 1 entry dated 2026-03-01, amount 21,000, running balance 21,000\n   - Open Documents tab: TX-P1 listed, remaining PKR 21,000\n4. Check /products/detail/[P1_ID]:\n   - P1-V1 stock = 10, P1-V2 stock = 5, Total = 15 Meters\n   - P1-V1 Avg Cost = PKR 1,500, P1-V2 Avg Cost = PKR 1,100\n   - Movements tab: PURCHASE_IN entries for both variants, date 2026-03-01\n5. Check /transactions: TX-P1 status = POSTED\n6. Check / Dashboard:\n   - Total Payables = PKR 21,000.00\n   - Cash & Bank = PKR 170,000.00 (unchanged)\n7. Check /reports/aged-payables (date 2026-03-05): S1 = PKR 21,000\n8. Check /reports/inventory-valuation (date 2026-03-05): P1-V1 qty 10 val 15000, P1-V2 qty 5 val 5500",
+    "expected_result": "- All 8 verification points pass\n- Supplier balance: PKR 21,000\n- P1-V1 stock: 10, P1-V2 stock: 5\n- Dashboard payables: PKR 21,000\n- Cash & Bank unchanged: PKR 170,000",
+    "actual_result": "",
+    "notes": "This is the most critical test in Phase 2. Each sub-check is a separate potential bug."
+  },
+  {
+    "tc_id": "TC-504",
+    "name": "[TC-504] Post Second Purchase TX-P2 and Verify Accumulation",
+    "phase": "Phase 2",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "High",
+    "assignee": null,
+    "steps": "1. Create purchase: S1, Date 2026-03-05, No delivery fee\n   Line: P1-V1, Qty 20, Cost 1500. Total = PKR 30,000\n2. Save as Draft → Post\n3. Check /supplier/detail/[S1_ID]:\n   - Balance = PKR 51,000 (21,000 + 30,000)\n   - Ledger: 2 entries, running balance 51,000\n   - Open Documents: 2 invoices, total PKR 51,000\n4. Check /products/detail/[P1_ID]:\n   - P1-V1 stock = 30 (10 + 20)\n   - P1-V2 stock = 5 (unchanged)\n5. Check Dashboard: Payables = PKR 51,000",
+    "expected_result": "- S1 balance: PKR 51,000\n- P1-V1 stock: 30\n- 2 ledger entries, 2 open invoices",
+    "actual_result": "",
+    "notes": "RECORD TX-P2 ID"
+  },
+  {
+    "tc_id": "TC-505",
+    "name": "[TC-505] Post Purchase TX-P3 from S2 and Verify Isolation",
+    "phase": "Phase 2",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "High",
+    "assignee": null,
+    "steps": "1. Create purchase: S2, Date 2026-03-07, Delivery Fee 1000\n   Line 1: P2-V1 (6mm), Qty 100, Cost 50\n   Line 2: P2-V2 (12mm), Qty 50, Cost 80\n   Total = (100×50) + (50×80) + 1000 = 5000+4000+1000 = PKR 10,000\n2. Save Draft → Post\n3. Check /supplier/detail/[S2_ID]: Balance = PKR 10,000\n4. Verify S1 balance still PKR 51,000 (not affected)\n5. Check /products/detail/[P2_ID]: P2-V1 = 100 Kg, P2-V2 = 50 Kg\n6. Dashboard: Total Payables = PKR 61,000 (S1+S2), Supplier count = 2",
+    "expected_result": "- S2 balance: PKR 10,000\n- S1 balance: PKR 51,000 (isolated)\n- P2-V1: 100, P2-V2: 50\n- Dashboard payables: PKR 61,000",
+    "actual_result": "",
+    "notes": "RECORD TX-P3 ID"
+  },
+  {
+    "tc_id": "TC-506",
+    "name": "[TC-506] Create and Delete a Draft Purchase",
+    "phase": "Phase 2",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "Medium",
+    "assignee": null,
+    "steps": "1. Create a purchase draft: any supplier, any 1 line item\n2. Save as Draft (do NOT post)\n3. Verify draft appears in /transactions list\n4. Open draft → delete it\n5. Verify draft disappears from list\n6. Verify no balance or stock changes occurred",
+    "expected_result": "- Draft deleted successfully\n- No supplier/stock/dashboard changes\n- Posted transactions cannot be deleted (verify delete button absent/disabled on TX-P1)",
+    "actual_result": "",
+    "notes": ""
+  },
+  {
+    "tc_id": "TC-507",
+    "name": "[TC-507] Reports Spot-Check After Purchases",
+    "phase": "Phase 2",
+    "module": "Reports",
+    "status": "Not Started",
+    "priority": "High",
+    "assignee": null,
+    "steps": "1. Go to /reports/aged-payables, set date 2026-03-10\n   Expected: S1 = PKR 51,000, S2 = PKR 10,000, Total = PKR 61,000\n2. Go to /reports/inventory-valuation, set date 2026-03-10\n   Expected: P1-V1 qty30 val45000, P1-V2 qty5 val5500, P2-V1 qty100 val5000, P2-V2 qty50 val4000, Total = PKR 59,500\n3. Go to /reports/trial-balance, set date 2026-03-10\n   Expected: Debits = Credits (balanced), Inventory ~59,500 Dr, Payables ~61,000 Cr",
+    "expected_result": "- Aged Payables total: PKR 61,000\n- Inventory Valuation total: PKR 59,500\n- Trial Balance: balanced (debits = credits)",
+    "actual_result": "",
+    "notes": "Delivery fees on purchases may affect exact inventory valuation — note actual vs expected"
+  }
+]

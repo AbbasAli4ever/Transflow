@@ -1,0 +1,93 @@
+[
+  {
+    "tc_id": "TC-1101",
+    "name": "[TC-1101] Post Internal Transfer TX-IT1 (A1 → A2) and Verify",
+    "phase": "Phase 6",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "High",
+    "assignee": null,
+    "steps": "1. Go to /transactions/internal-transfer\n   - From: HBL Main (A1)\n   - To: Cash Box (A2)\n   - Amount: 25000\n   - Date: 2026-03-25\n2. Save Draft → verify NO side effects\n3. Post\n4. Check /payment-accounts/detail/[A1_ID]:\n   - Balance = PKR 76,400 (101,400 - 25,000)\n   - Statement: outflow entry 2026-03-25, PKR 25,000\n5. Check /payment-accounts/detail/[A2_ID]:\n   - Balance = PKR 55,000 (30,000 + 25,000)\n   - Statement: inflow entry 2026-03-25, PKR 25,000\n6. Check / Dashboard: Cash & Bank = PKR 148,600 (UNCHANGED — net zero)\n7. Verify: A1 PKR 76,400 + A2 PKR 55,000 + A3 PKR 17,200 = PKR 148,600",
+    "expected_result": "- A1: PKR 76,400 (decreased)\n- A2: PKR 55,000 (increased)\n- Dashboard total: PKR 148,600 (no change — key check)\n- Suppliers, customers, stock: all unchanged",
+    "actual_result": "",
+    "notes": "RECORD TX-IT1 ID. Net-zero effect on total cash is the critical check here."
+  },
+  {
+    "tc_id": "TC-1102",
+    "name": "[TC-1102] Post Internal Transfer TX-IT2 (A2 → A3)",
+    "phase": "Phase 6",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "High",
+    "assignee": null,
+    "steps": "1. Transfer: From Cash Box (A2), To JazzCash (A3), Amount 10000, Date 2026-03-26\n2. Post\n3. A2 balance = PKR 45,000 (55,000 - 10,000)\n4. A3 balance = PKR 27,200 (17,200 + 10,000)\n5. Dashboard Cash & Bank = PKR 148,600 (still unchanged)\n6. Final breakdown: A1 76,400 + A2 45,000 + A3 27,200 = 148,600",
+    "expected_result": "- A2: PKR 45,000\n- A3: PKR 27,200\n- Dashboard total: PKR 148,600",
+    "actual_result": "",
+    "notes": "RECORD TX-IT2 ID"
+  },
+  {
+    "tc_id": "TC-1103",
+    "name": "[TC-1103] Transfer Validation Tests",
+    "phase": "Phase 6",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "Medium",
+    "assignee": null,
+    "steps": "Test A: From = HBL Main, To = HBL Main (same account)\n  Expected: blocked — 'Cannot transfer to same account'\nTest B: From = JazzCash (PKR 27,200), Amount = 99,999 (more than balance)\n  Expected: note behavior — blocked or allowed (overdraft)\nTest C: Amount = 0\n  Expected: validation error\nTest D: Amount = -500\n  Expected: validation error or input blocked\nFor B: delete draft without posting",
+    "expected_result": "- Same account: blocked\n- Zero amount: blocked with error\n- Negative amount: blocked\n- Overdraft: note behavior (blocked or allowed)",
+    "actual_result": "",
+    "notes": "Do NOT post the overdraft test"
+  },
+  {
+    "tc_id": "TC-1201",
+    "name": "[TC-1201] Post Stock Adjustment IN TX-ADJ1 (P1-V2, Zero Stock Restock)",
+    "phase": "Phase 6",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "High",
+    "assignee": null,
+    "steps": "1. Go to /transactions/stock-adjustment\n   - Date: 2026-03-27\n   - Notes: Stocktake — found 3 extra Medium cloth rolls\n   - Line: P1-V2 (Medium), Direction IN, Qty 3, Unit Cost 1100, Reason: Physical stocktake surplus\n2. Save Draft → verify P1-V2 still 0\n3. Post\n4. Check /products/detail/[P1_ID]:\n   - P1-V2 stock = 3 (was 0)\n   - Movements: ADJUSTMENT_IN entry qty +3\n5. /reports/inventory-valuation: P1-V2 qty 3, value = 3×1100 = PKR 3,300\n6. Verify: suppliers, customers, payment accounts all UNCHANGED",
+    "expected_result": "- P1-V2 stock: 3\n- Movement: ADJUSTMENT_IN qty +3\n- Inventory value increased by PKR 3,300\n- No supplier/customer/account changes",
+    "actual_result": "",
+    "notes": "RECORD TX-ADJ1 ID"
+  },
+  {
+    "tc_id": "TC-1202",
+    "name": "[TC-1202] Post Stock Adjustment OUT TX-ADJ2 (P2-V2 Write-Off)",
+    "phase": "Phase 6",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "High",
+    "assignee": null,
+    "steps": "1. Stock adjustment:\n   - Date: 2026-03-28\n   - Notes: Damaged steel rods scrapped\n   - Line: P2-V2 (12mm), Direction OUT, Qty 5, Unit Cost 80, Reason: Rust damage\n2. Post\n3. P2-V2 stock = 45 (50 - 5)\n4. Movement: ADJUSTMENT_OUT qty -5\n5. /reports/inventory-valuation: P2-V2 qty 45, value = 45×80 = PKR 3,600",
+    "expected_result": "- P2-V2 stock: 45\n- Movement: ADJUSTMENT_OUT qty -5\n- Inventory decreased by 5×80 = PKR 400",
+    "actual_result": "",
+    "notes": "RECORD TX-ADJ2 ID"
+  },
+  {
+    "tc_id": "TC-1203",
+    "name": "[TC-1203] Post Multi-Line Adjustment TX-ADJ3 (IN + OUT)",
+    "phase": "Phase 6",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "Medium",
+    "assignee": null,
+    "steps": "1. Multi-line adjustment, Date: 2026-03-29:\n   - Line 1: P1-V1 (Small S), IN, Qty 2, Cost 1500, Reason: Found in back store\n   - Line 2: P2-V1 (6mm), OUT, Qty 3, Cost 50, Reason: Allocated as samples\n2. Post\n3. P1-V1 stock = 22 (20 + 2)\n4. P2-V1 stock = 72 (75 - 3)\n5. Movements on P1: ADJUSTMENT_IN +2; Movements on P2: ADJUSTMENT_OUT -3",
+    "expected_result": "- P1-V1 stock: 22\n- P2-V1 stock: 72\n- Both movements recorded on their respective product detail pages",
+    "actual_result": "",
+    "notes": "RECORD TX-ADJ3 ID"
+  },
+  {
+    "tc_id": "TC-1204",
+    "name": "[TC-1204] Adjustment Validation Tests",
+    "phase": "Phase 6",
+    "module": "Transaction",
+    "status": "Not Started",
+    "priority": "High",
+    "assignee": null,
+    "steps": "Test A: Adjust P1-V2 OUT, Qty 3 (stock = 3 after ADJ1) → should work, result = 0 stock\nTest B: Adjust P1-V2 OUT, Qty 1 (stock = 0 after Test A) → Expected: blocked 'Insufficient stock'\nTest C: Qty = 0 on any line → Expected: validation error\nTest D: Unit Cost = -100 → Expected: validation error or blocked",
+    "expected_result": "- Test A: P1-V2 = 0 stock after\n- Test B: blocked — cannot go below zero stock\n- Test C: zero qty blocked\n- Test D: negative cost blocked\n- If Test B allows negative stock: CRITICAL BUG",
+    "actual_result": "",
+    "notes": "Test A must be performed to set P1-V2 to 0 for the final state. Tests B,C,D are validation checks only."
+  }
+]

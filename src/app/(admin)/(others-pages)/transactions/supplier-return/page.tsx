@@ -264,7 +264,7 @@ export default function SupplierReturnPage() {
         const sourceLine = linesById.get(line.lineId);
         const derivedUnit = sourceLine
           ? sourceLine.quantity > 0
-            ? sourceLine.lineTotal / sourceLine.quantity
+            ? (sourceLine.lineTotal + sourceLine.discountAmount) / sourceLine.quantity
             : 0
           : 0;
 

@@ -79,7 +79,7 @@ export interface ListCustomersParams {
   limit?: number;
   search?: string;
   status?: CustomerStatus | "ALL";
-  sortBy?: "name" | "createdAt";
+  sortBy?: "name" | "createdAt" | "balance";
   sortOrder?: "asc" | "desc";
 }
 

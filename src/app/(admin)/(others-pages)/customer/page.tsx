@@ -413,8 +413,8 @@ export default function CustomersPage() {
         limit: 20,
         search: debouncedSearch || undefined,
         status: statusFilter === "All" ? "ALL" : statusFilter,
-        sortBy: sortKey === "balance" ? "name" : sortKey,
-        sortOrder: "asc",
+        sortBy: sortKey,
+        sortOrder: sortKey === "balance" ? "desc" : "asc",
       });
       setCustomers(result.data);
       setMeta({ total: result.meta.total, totalPages: result.meta.totalPages });

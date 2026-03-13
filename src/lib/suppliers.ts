@@ -308,7 +308,7 @@ export interface ListSuppliersParams {
   limit?: number;
   search?: string;
   status?: SupplierStatus | "ALL";
-  sortBy?: "name" | "createdAt";
+  sortBy?: "name" | "createdAt" | "balance";
   sortOrder?: "asc" | "desc";
 }
 

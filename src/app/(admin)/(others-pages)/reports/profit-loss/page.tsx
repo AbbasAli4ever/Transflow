@@ -25,7 +25,7 @@ function daysAgoStr(days: number) {
 interface ReportRowProps {
   label: string;
   value: number;
-  variant?: "normal" | "deduction" | "highlight" | "total" | "margin";
+  variant?: "normal" | "deduction" | "highlight" | "total" | "margin" | "netIncome";
 }
 
 function ReportRow({ label, value, variant = "normal" }: ReportRowProps) {
@@ -33,8 +33,14 @@ function ReportRow({ label, value, variant = "normal" }: ReportRowProps) {
   const isHighlight = variant === "highlight";
   const isTotal = variant === "total";
   const isMargin = variant === "margin";
+  const isNetIncome = variant === "netIncome";
+  const isProfit = isNetIncome && value >= 0;
 
-  const rowClass = isHighlight
+  const rowClass = isNetIncome
+    ? isProfit
+      ? "bg-success-50 dark:bg-success-900/20 border border-success-100 dark:border-success-800"
+      : "bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900"
+    : isHighlight
     ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800"
     : isDeduction
     ? "bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900"
@@ -42,7 +48,11 @@ function ReportRow({ label, value, variant = "normal" }: ReportRowProps) {
     ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800"
     : "border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/40";
 
-  const labelClass = isHighlight
+  const labelClass = isNetIncome
+    ? isProfit
+      ? "text-base font-bold text-success-700 dark:text-success-400 uppercase tracking-wide"
+      : "text-base font-bold text-red-700 dark:text-red-400 uppercase tracking-wide"
+    : isHighlight
     ? "text-base font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide"
     : isDeduction
     ? "text-sm text-red-600 dark:text-red-400"
@@ -50,7 +60,11 @@ function ReportRow({ label, value, variant = "normal" }: ReportRowProps) {
     ? "text-base font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wide"
     : "text-sm text-gray-700 dark:text-gray-300";
 
-  const valueClass = isHighlight
+  const valueClass = isNetIncome
+    ? isProfit
+      ? "text-base font-bold text-success-700 dark:text-success-400"
+      : "text-base font-bold text-red-700 dark:text-red-400"
+    : isHighlight
     ? "text-base font-bold text-blue-700 dark:text-blue-400"
     : isDeduction
     ? "text-sm font-medium text-red-600 dark:text-red-400"
@@ -101,6 +115,11 @@ export default function ProfitLossPage() {
 
   const fromRef = useRef<HTMLInputElement>(null);
   const toRef = useRef<HTMLInputElement>(null);
+  const operatingExpenseRows = report?.operatingExpenses.byCategory.filter((item) => item.amount !== 0) ?? [];
+  const grossProfitMargin =
+    report && report.revenue.netRevenue !== 0
+      ? (report.grossProfit / report.revenue.netRevenue) * 100
+      : null;
 
   // Init flatpickr
   React.useEffect(() => {
@@ -220,16 +239,54 @@ export default function ProfitLossPage() {
       {report && (
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 space-y-1">
           <SectionHeader label="Revenue" />
-          <ReportRow label="Sales" value={report.sales} />
-          <ReportRow label="Less: Sales Returns" value={report.salesReturns} variant="deduction" />
-          <ReportRow label="Net Revenue" value={report.netRevenue} variant="total" />
+          <ReportRow label="Sales Revenue" value={report.revenue.salesRevenue} />
+          <ReportRow
+            label="Less: Sales Returns"
+            value={report.revenue.salesReturns}
+            variant="deduction"
+          />
+          <ReportRow label="Net Revenue" value={report.revenue.netRevenue} variant="total" />
 
           <SectionHeader label="Cost of Goods Sold" />
-          <ReportRow label="Cost of Sales" value={report.costOfGoodsSold} variant="deduction" />
+          <ReportRow label="Cost of Goods Sold" value={report.costOfGoodsSold} variant="deduction" />
 
           <div className="pt-2" />
           <ReportRow label="Gross Profit" value={report.grossProfit} variant="highlight" />
-          <ReportRow label="Gross Profit Margin" value={report.grossProfitMargin} variant="margin" />
+          {grossProfitMargin !== null ? (
+            <ReportRow label="Gross Profit Margin" value={grossProfitMargin} variant="margin" />
+          ) : (
+            <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
+              <span className="text-base font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wide">
+                Gross Profit Margin
+              </span>
+              <span className="text-base font-bold text-gray-800 dark:text-gray-200">—</span>
+            </div>
+          )}
+
+          <SectionHeader label="Operating Expenses" />
+          {operatingExpenseRows.length === 0 ? (
+            <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-100 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+              <span>No operating expenses in this period.</span>
+              <span>{formatPKR(0)}</span>
+            </div>
+          ) : (
+            operatingExpenseRows.map((item) => (
+              <ReportRow
+                key={item.categoryName}
+                label={item.categoryName}
+                value={item.amount}
+                variant="deduction"
+              />
+            ))
+          )}
+          <ReportRow
+            label="Total Operating Expenses"
+            value={report.operatingExpenses.total}
+            variant="deduction"
+          />
+
+          <div className="pt-2" />
+          <ReportRow label="Net Income" value={report.netIncome} variant="netIncome" />
 
           <p className="text-xs text-gray-400 dark:text-gray-500 pt-4 px-1">
             Each line is clickable to drill into the transactions behind that number.

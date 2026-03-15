@@ -13,6 +13,17 @@ export interface ApiPaymentAccountComputed {
   lastTransactionDate: string | null;
 }
 
+export interface ApiPaymentAccountBreakdown {
+  currentBalance: number;
+  openingBalance: number;
+  moneyIn: {
+    totalAmount: number;
+  };
+  moneyOut: {
+    totalAmount: number;
+  };
+}
+
 export interface ApiPaymentAccount {
   id: string;
   tenantId: string;
@@ -23,6 +34,7 @@ export interface ApiPaymentAccount {
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
+  breakdown?: ApiPaymentAccountBreakdown;
   _computed: ApiPaymentAccountComputed;
 }
 

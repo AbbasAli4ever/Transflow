@@ -127,8 +127,14 @@ export interface ApiTransaction {
   paidNow: number;
   notes: string | null;
   postedAt: string | null;
+  voidReason?: string | null;
+  voidedAt?: string | null;
+  voidedBy?: string | null;
   createdAt: string;
   updatedAt: string;
+  createdByUser?: {
+    fullName: string;
+  } | null;
   supplier: { id: string; name: string } | null;
   customer: { id: string; name: string } | null;
   transactionLines?: ApiTransactionLine[];
@@ -512,6 +518,16 @@ export function postTransaction(
   body: PostTransactionBody
 ): Promise<ApiTransaction> {
   return apiRequest<ApiTransaction>(`/transactions/${id}/post`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function voidTransaction(
+  id: string,
+  body: { reason?: string }
+): Promise<ApiTransaction> {
+  return apiRequest<ApiTransaction>(`/transactions/${id}/void`, {
     method: "POST",
     body: JSON.stringify(body),
   });

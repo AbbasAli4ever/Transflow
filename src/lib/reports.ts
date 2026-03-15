@@ -3,14 +3,25 @@ import { apiRequest } from "./api";
 // ─── P&L Report ───────────────────────────────────────────────────────────────
 
 export interface ProfitLossReport {
-  dateFrom: string;
-  dateTo: string;
-  sales: number;
-  salesReturns: number;
-  netRevenue: number;
+  period: {
+    from: string;
+    to: string;
+  };
+  revenue: {
+    salesRevenue: number;
+    salesReturns: number;
+    netRevenue: number;
+  };
   costOfGoodsSold: number;
   grossProfit: number;
-  grossProfitMargin: number;
+  operatingExpenses: {
+    byCategory: Array<{
+      categoryName: string;
+      amount: number;
+    }>;
+    total: number;
+  };
+  netIncome: number;
 }
 
 export function getProfitLossReport(
@@ -99,16 +110,23 @@ export function getPendingPayables(
 // ─── Trial Balance ────────────────────────────────────────────────────────────
 
 export interface TrialBalanceAccount {
-  name: string;
-  debit: number;
-  credit: number;
+  accountNumber: string;
+  accountName: string;
+  type: string;
+  subtype: string;
+  totalDebit: number;
+  totalCredit: number;
+  balance: number;
+  normalBalance: string;
 }
 
 export interface TrialBalanceReport {
   asOfDate: string;
   accounts: TrialBalanceAccount[];
-  totalDebit: number;
-  totalCredit: number;
+  totals: {
+    totalDebits: number;
+    totalCredits: number;
+  };
 }
 
 export function getTrialBalance(asOfDate?: string): Promise<TrialBalanceReport> {
@@ -119,28 +137,18 @@ export function getTrialBalance(asOfDate?: string): Promise<TrialBalanceReport> 
 // ─── Inventory Valuation ──────────────────────────────────────────────────────
 
 export interface InventoryVariant {
-  variantId: string;
-  size: string;
-  sku: string | null;
-  qtyOnHand: number;
-  avgCost: number;
-  totalValue: number;
-}
-
-export interface InventoryProduct {
-  productId: string;
   productName: string;
-  sku: string | null;
-  category: string | null;
-  variants: InventoryVariant[];
-  productTotalQty: number;
-  productTotalValue: number;
+  variantSize: string;
+  accountNumber: string;
+  inventoryValue: number;
+  quantity: number;
+  avgCost: number;
 }
 
 export interface InventoryValuationReport {
   asOfDate: string;
-  grandTotalValue: number;
-  products: InventoryProduct[];
+  totalInventoryValue: number;
+  variants: InventoryVariant[];
 }
 
 export function getInventoryValuation(
@@ -148,6 +156,74 @@ export function getInventoryValuation(
 ): Promise<InventoryValuationReport> {
   return apiRequest<InventoryValuationReport>(
     `/reports/inventory-valuation?asOfDate=${asOfDate}`
+  );
+}
+
+// ─── Balance Sheet ────────────────────────────────────────────────────────────
+
+export interface BalanceSheetReport {
+  asOfDate: string;
+  totalLiabilitiesAndEquity?: number;
+  assets: {
+    cash: Array<{
+      name: string;
+      balance: number;
+    }> | number;
+    totalCash?: number;
+    accountsReceivable: Array<{
+      name: string;
+      balance: number;
+    }> | number;
+    totalAccountsReceivable?: number;
+    inventory: Array<{
+      name: string;
+      balance: number;
+    }> | number;
+    totalInventory?: number;
+    totalAssets: number;
+  };
+  liabilities: {
+    accountsPayable: Array<{
+      name: string;
+      balance: number;
+    }> | number;
+    totalAccountsPayable?: number;
+    totalLiabilities: number;
+  };
+  equity: {
+    openingCapital: number;
+    retainedEarnings: number;
+    totalEquity: number;
+  };
+  isBalanced: boolean;
+}
+
+export function getBalanceSheet(asOfDate: string): Promise<BalanceSheetReport> {
+  return apiRequest<BalanceSheetReport>(
+    `/reports/balance-sheet?asOfDate=${asOfDate}`
+  );
+}
+
+// ─── Cash Position ────────────────────────────────────────────────────────────
+
+export type CashPositionAccountType = "CASH" | "BANK" | "WALLET" | "CARD";
+
+export interface CashPositionAccount {
+  accountId: string;
+  accountName: string;
+  accountType: CashPositionAccountType;
+  balance: number;
+}
+
+export interface CashPositionReport {
+  asOfDate: string;
+  totalCash: number;
+  accounts: CashPositionAccount[];
+}
+
+export function getCashPosition(asOfDate: string): Promise<CashPositionReport> {
+  return apiRequest<CashPositionReport>(
+    `/reports/cash-position?asOfDate=${asOfDate}`
   );
 }
 

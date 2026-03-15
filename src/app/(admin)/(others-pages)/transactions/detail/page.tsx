@@ -8,6 +8,7 @@ import {
   HiOutlineArrowsUpDown,
   HiOutlineExclamationTriangle,
   HiOutlinePencilSquare,
+  HiOutlineCheckCircle,
   HiOutlineTrash,
   HiOutlinePrinter,
   HiOutlineXMark,
@@ -15,6 +16,7 @@ import {
 import Badge from "@/components/ui/badge/Badge";
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
+import { useAuth } from "@/context/AuthContext";
 import {
   ApiTransaction,
   PatchTransactionDto,
@@ -28,6 +30,7 @@ import {
   patchTransaction,
   postTransaction,
   formatPKR,
+  voidTransaction,
 } from "@/lib/suppliers";
 import { ApiError } from "@/lib/api";
 import { ApiPaymentAccount, listPaymentAccounts } from "@/lib/paymentAccounts";
@@ -39,6 +42,15 @@ const fmtDate = (d: string) =>
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
+  });
+
+const fmtDateTime = (d: string) =>
+  new Date(d).toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 
 const TYPE_LABELS: Record<TransactionType, string> = {
@@ -66,10 +78,10 @@ const TYPE_BADGE: Record<
   ADJUSTMENT: "dark",
 };
 
-const STATUS_BADGE: Record<TransactionStatus, "warning" | "success" | "error"> = {
+const STATUS_BADGE: Record<TransactionStatus, "warning" | "success" | "light"> = {
   DRAFT: "warning",
   POSTED: "success",
-  VOIDED: "error",
+  VOIDED: "light",
 };
 
 type EditLine = PatchTransactionLineDto & { _key: string };
@@ -114,6 +126,7 @@ function PageSkeleton() {
 
 export default function TransactionDetailPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [id, setId] = useState<string | null>(null);
 
   const [transaction, setTransaction] = useState<ApiTransaction | null>(null);
@@ -129,11 +142,15 @@ export default function TransactionDetailPage() {
   const [postLoading, setPostLoading] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voidReason, setVoidReason] = useState("");
+  const [voidLoading, setVoidLoading] = useState(false);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("transactionId");
@@ -187,7 +204,6 @@ export default function TransactionDetailPage() {
   useEffect(() => {
     if (!id) return;
     loadTransaction(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const accountMap = useMemo(() => {
@@ -293,6 +309,27 @@ export default function TransactionDetailPage() {
     } finally {
       setDeleteLoading(false);
       setDeleteOpen(false);
+    }
+  };
+
+  const handleVoid = async () => {
+    if (!transaction) return;
+    setVoidLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      await voidTransaction(transaction.id, {
+        reason: voidReason.trim() ? voidReason.trim() : undefined,
+      });
+      await loadTransaction(transaction.id);
+      setSuccessMessage("Transaction voided");
+      setVoidReason("");
+      setVoidOpen(false);
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setError(apiErr.message ?? "Failed to void transaction.");
+    } finally {
+      setVoidLoading(false);
     }
   };
 
@@ -449,6 +486,7 @@ export default function TransactionDetailPage() {
     transaction.type === "SUPPLIER_PAYMENT" || transaction.type === "CUSTOMER_PAYMENT";
 
   const unitLabel = transaction.type === "SALE" ? "Unit Price" : "Unit Cost";
+  const canVoid = user?.role === "OWNER" || user?.role === "ADMIN";
 
   return (
     <div className="mx-auto w-full max-w-full">
@@ -463,6 +501,36 @@ export default function TransactionDetailPage() {
       </div>
 
       <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+        {successMessage && (
+          <div className="mb-4 flex items-start gap-2 rounded-xl bg-success-50 px-4 py-3 text-sm text-success-700 dark:bg-success-500/10 dark:text-success-400">
+            <HiOutlineCheckCircle size={16} className="mt-0.5 shrink-0" />
+            {successMessage}
+          </div>
+        )}
+
+        {transaction.status === "VOIDED" && (
+          <div className="mb-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/60">
+            <div className="mb-2 flex items-center gap-2">
+              <Badge variant="light" size="sm" color="light">
+                VOIDED
+              </Badge>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                This transaction has been voided.
+              </p>
+            </div>
+            <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
+              <p>
+                <span className="text-gray-400">Voided reason:</span>{" "}
+                {transaction.voidReason?.trim() || "No reason given"}
+              </p>
+              <p>
+                <span className="text-gray-400">Voided at:</span>{" "}
+                {transaction.voidedAt ? fmtDateTime(transaction.voidedAt) : "—"}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -507,6 +575,12 @@ export default function TransactionDetailPage() {
               <div>
                 <span className="text-gray-400">Created:</span> {fmtDate(transaction.createdAt)}
               </div>
+              {transaction.createdByUser?.fullName && (
+                <div>
+                  <span className="text-gray-400">Created by:</span>{" "}
+                  {transaction.createdByUser.fullName}
+                </div>
+              )}
             </div>
           </div>
 
@@ -537,9 +611,24 @@ export default function TransactionDetailPage() {
                 </Button>
               </>
             ) : (
-              <Button variant="outline" size="sm" startIcon={<HiOutlinePrinter size={16} />} disabled>
-                Print / Export PDF
-              </Button>
+              <>
+                <Button variant="outline" size="sm" startIcon={<HiOutlinePrinter size={16} />} disabled>
+                  Print / Export PDF
+                </Button>
+                {transaction.status === "POSTED" && canVoid && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoidReason("");
+                      setVoidOpen(true);
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700 transition hover:bg-error-100 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400 dark:hover:bg-error-500/15"
+                  >
+                    <HiOutlineTrash size={16} />
+                    Void Transaction
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -725,6 +814,58 @@ export default function TransactionDetailPage() {
               <Button size="sm" onClick={handleDelete} disabled={deleteLoading}>
                 {deleteLoading ? "Deleting..." : "Delete"}
               </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {voidOpen && (
+        <Modal isOpen onClose={() => setVoidOpen(false)} className="max-w-lg mx-4" showCloseButton={false}>
+          <div className="p-6">
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Void Transaction
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  This action is irreversible. Enter a reason (optional).
+                </p>
+              </div>
+              <button
+                onClick={() => setVoidOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+              >
+                <HiOutlineXMark size={18} />
+              </button>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Reason
+              </label>
+              <textarea
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                rows={4}
+                placeholder="Optional reason for voiding this transaction"
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-error-500 focus:ring-2 focus:ring-error-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              />
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setVoidOpen(false)} disabled={voidLoading}>
+                Cancel
+              </Button>
+              <button
+                type="button"
+                onClick={handleVoid}
+                disabled={voidLoading}
+                className={`inline-flex items-center justify-center rounded-lg bg-error-500 px-4 py-3 text-sm font-medium text-white transition hover:bg-error-600 ${
+                  voidLoading ? "cursor-not-allowed opacity-50" : ""
+                }`}
+              >
+                {voidLoading ? "Voiding..." : "Void Transaction"}
+              </button>
             </div>
           </div>
         </Modal>

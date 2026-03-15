@@ -4,6 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
+import { useAuth } from "@/context/AuthContext";
+import { listExpenses } from "@/lib/expenses";
 import {
   BoxCubeIcon,
   ChevronDownIcon,
@@ -29,11 +31,12 @@ import SidebarWidget from "./SidebarWidget";
 type NavItem = {
   name: string;
   icon: React.ReactNode;
+  badge?: number;
   path?: string;
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
-const navItems: NavItem[] = [
+const BASE_NAV_ITEMS: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
@@ -79,16 +82,13 @@ const navItems: NavItem[] = [
     name: "Reports",
     subItems: [
       { name: "P&L", path: "/reports/profit-loss" },
+      { name: "Balance Sheet", path: "/reports/balance-sheet" },
+      { name: "Cash Position", path: "/reports/cash-position" },
       { name: "Trial Balance", path: "/reports/trial-balance" },
       { name: "Aged Receivables", path: "/reports/aged-receivables" },
       { name: "Aged Payables", path: "/reports/aged-payables" },
       { name: "Inventory Valuation", path: "/reports/inventory-valuation" },
     ],
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "User Profile",
-    path: "/profile",
   },
 ];
 
@@ -96,7 +96,66 @@ const othersItems: NavItem[] = [];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+  const { user } = useAuth();
   const pathname = usePathname();
+  const canManageExpenses = user?.role === "OWNER" || user?.role === "ADMIN";
+  const canManageExpenseCategories = canManageExpenses;
+  const [expenseDraftCount, setExpenseDraftCount] = useState(0);
+
+  const fetchExpenseDraftCount = useCallback(async () => {
+    if (!canManageExpenses) {
+      setExpenseDraftCount(0);
+      return;
+    }
+    try {
+      const result = await listExpenses({ status: "DRAFT", limit: 1, page: 1 });
+      setExpenseDraftCount(result.meta.total);
+    } catch {
+      setExpenseDraftCount(0);
+    }
+  }, [canManageExpenses]);
+
+  useEffect(() => {
+    void fetchExpenseDraftCount();
+  }, [fetchExpenseDraftCount]);
+
+  useEffect(() => {
+    const handleExpensesChanged = () => {
+      void fetchExpenseDraftCount();
+    };
+    window.addEventListener("expenses:changed", handleExpensesChanged);
+    return () => {
+      window.removeEventListener("expenses:changed", handleExpensesChanged);
+    };
+  }, [fetchExpenseDraftCount]);
+
+  const navItems: NavItem[] = [
+    ...BASE_NAV_ITEMS,
+    ...(canManageExpenses
+      ? [
+          {
+            icon: <ListIcon />,
+            name: "Expenses",
+            path: "/expenses",
+            badge: expenseDraftCount > 0 ? expenseDraftCount : undefined,
+          } satisfies NavItem,
+        ]
+      : []),
+    ...(canManageExpenseCategories
+      ? [
+          {
+            icon: <PlugInIcon />,
+            name: "Settings",
+            subItems: [{ name: "Expense Categories", path: "/settings/expense-categories" }],
+          } satisfies NavItem,
+        ]
+      : []),
+    {
+      icon: <UserCircleIcon />,
+      name: "User Profile",
+      path: "/profile",
+    },
+  ];
 
   const renderMenuItems = (
     navItems: NavItem[],
@@ -130,9 +189,14 @@ const AppSidebar: React.FC = () => {
               {(isExpanded || isHovered || isMobileOpen) && (
                 <span className={`menu-item-text`}>{nav.name}</span>
               )}
+              {(isExpanded || isHovered || isMobileOpen) && nav.badge !== undefined && (
+                <span className="ml-auto inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-brand-500 px-1.5 py-0.5 text-xs font-semibold text-white">
+                  {nav.badge}
+                </span>
+              )}
               {(isExpanded || isHovered || isMobileOpen) && (
                 <ChevronDownIcon
-                  className={`ml-auto w-5 h-5 transition-transform duration-200  ${
+                  className={`${nav.badge === undefined ? "ml-auto " : ""}w-5 h-5 transition-transform duration-200  ${
                     openSubmenu?.type === menuType &&
                     openSubmenu?.index === index
                       ? "rotate-180 text-brand-500"
@@ -160,6 +224,11 @@ const AppSidebar: React.FC = () => {
                 </span>
                 {(isExpanded || isHovered || isMobileOpen) && (
                   <span className={`menu-item-text`}>{nav.name}</span>
+                )}
+                {(isExpanded || isHovered || isMobileOpen) && nav.badge !== undefined && (
+                  <span className="ml-auto inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-brand-500 px-1.5 py-0.5 text-xs font-semibold text-white">
+                    {nav.badge}
+                  </span>
                 )}
               </Link>
             )

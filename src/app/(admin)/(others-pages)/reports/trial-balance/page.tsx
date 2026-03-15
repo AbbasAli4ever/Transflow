@@ -77,7 +77,7 @@ export default function TrialBalancePage() {
   const accounts: TrialBalanceAccount[] = report?.accounts ?? [];
   const balanced =
     report &&
-    Math.abs(report.totalDebit - report.totalCredit) < 1; // integer PKR, should be exact
+    Math.abs(report.totals.totalDebits - report.totals.totalCredits) < 1; // integer PKR, should be exact
 
   return (
     <div className="w-full max-w-full mx-auto">
@@ -151,20 +151,20 @@ export default function TrialBalancePage() {
                   </tr>
                 ) : (
                   accounts.map((acc, i) => {
-                    const hasDebit = acc.debit > 0;
-                    const hasCredit = acc.credit > 0;
+                    const hasDebit = acc.totalDebit > 0;
+                    const hasCredit = acc.totalCredit > 0;
                     return (
                       <tr
                         key={i}
                         className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/40"
                       >
                         <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                          {acc.name}
+                          {acc.accountName}
                         </td>
                         <td className="text-right px-4 py-3">
                           {hasDebit ? (
                             <span className="text-green-600 dark:text-green-400 font-medium">
-                              {acc.debit.toLocaleString("en-PK")}
+                              {acc.totalDebit.toLocaleString("en-PK")}
                             </span>
                           ) : (
                             <span className="text-gray-400 dark:text-gray-600">—</span>
@@ -173,7 +173,7 @@ export default function TrialBalancePage() {
                         <td className="text-right px-4 py-3">
                           {hasCredit ? (
                             <span className="text-red-600 dark:text-red-400 font-medium">
-                              {acc.credit.toLocaleString("en-PK")}
+                              {acc.totalCredit.toLocaleString("en-PK")}
                             </span>
                           ) : (
                             <span className="text-gray-400 dark:text-gray-600">—</span>
@@ -191,10 +191,10 @@ export default function TrialBalancePage() {
                       Totals
                     </td>
                     <td className="text-right px-4 py-3 font-bold text-blue-700 dark:text-blue-400">
-                      {report.totalDebit.toLocaleString("en-PK")}
+                      {report.totals.totalDebits.toLocaleString("en-PK")}
                     </td>
                     <td className="text-right px-4 py-3 font-bold text-blue-700 dark:text-blue-400">
-                      {report.totalCredit.toLocaleString("en-PK")}
+                      {report.totals.totalCredits.toLocaleString("en-PK")}
                     </td>
                   </tr>
                 </tfoot>
@@ -212,7 +212,7 @@ export default function TrialBalancePage() {
                 <span className="inline-flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 font-medium">
                   <HiOutlineExclamationTriangle className="w-4 h-4" />
                   Out of balance by{" "}
-                  {formatPKR(Math.abs(report.totalDebit - report.totalCredit))}
+                  {formatPKR(Math.abs(report.totals.totalDebits - report.totals.totalCredits))}
                 </span>
               )}
             </div>

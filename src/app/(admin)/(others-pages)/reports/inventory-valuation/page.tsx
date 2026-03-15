@@ -11,7 +11,7 @@ import Button from "@/components/ui/button/Button";
 import {
   getInventoryValuation,
   InventoryValuationReport,
-  InventoryProduct,
+  InventoryVariant,
   formatPKR,
 } from "@/lib/reports";
 import { ApiError } from "@/lib/api";
@@ -67,14 +67,7 @@ export default function InventoryValuationPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasLoadedDefaultReport]);
 
-  const products: InventoryProduct[] = report?.products ?? [];
-
-  function navigateToProduct(productId: string) {
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem("productId", productId);
-      window.location.href = "/products/detail";
-    }
-  }
+  const variants: InventoryVariant[] = report?.variants ?? [];
 
   return (
     <div className="w-full max-w-full mx-auto">
@@ -85,7 +78,7 @@ export default function InventoryValuationPage() {
             Inventory Valuation Report
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Stock on hand value by product.
+            Stock on hand value by variant.
           </p>
         </div>
         <button
@@ -139,12 +132,6 @@ export default function InventoryValuationPage() {
                   <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">
                     Size
                   </th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">
-                    SKU
-                  </th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">
-                    Category
-                  </th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">
                     Qty on Hand
                   </th>
@@ -157,91 +144,53 @@ export default function InventoryValuationPage() {
                 </tr>
               </thead>
               <tbody>
-                {products.length === 0 ? (
+                {variants.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={5}
                       className="text-center py-12 text-gray-400 dark:text-gray-500"
                     >
                       No inventory found as of {asOfDate}.
                     </td>
                   </tr>
                 ) : (
-                  products.map((product) =>
-                    product.variants.map((variant, vIdx) => (
-                      <tr
-                        key={variant.variantId}
-                        className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/40"
-                      >
-                        {/* Product name only in first variant row */}
-                        <td className="px-4 py-3">
-                          {vIdx === 0 ? (
-                            <button
-                              onClick={() => navigateToProduct(product.productId)}
-                              className="text-brand-600 dark:text-brand-400 hover:underline font-medium text-left"
-                            >
-                              {product.productName}
-                            </button>
-                          ) : null}
-                        </td>
-                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                          {variant.size}
-                        </td>
-                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs">
-                          {variant.sku ?? "—"}
-                        </td>
-                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
-                          {product.category ?? "—"}
-                        </td>
-                        <td className="text-right px-4 py-3 text-gray-700 dark:text-gray-300">
-                          {variant.qtyOnHand.toLocaleString("en-PK")}
-                        </td>
-                        <td className="text-right px-4 py-3 text-gray-700 dark:text-gray-300">
-                          {formatPKR(variant.avgCost)}
-                        </td>
-                        <td className="text-right px-4 py-3 text-gray-700 dark:text-gray-300">
-                          {formatPKR(variant.totalValue)}
-                        </td>
-                      </tr>
-                    ))
-                  )
-                )}
-
-                {/* Per-product subtotals */}
-                {products.map((product) => (
-                  <tr
-                    key={`sub-${product.productId}`}
-                    className="bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-700"
-                  >
-                    <td
-                      colSpan={4}
-                      className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 italic"
+                  variants.map((variant, index) => (
+                    <tr
+                      key={`${variant.productName}-${variant.variantSize}-${index}`}
+                      className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/40"
                     >
-                      Sub-total — {product.productName}
-                    </td>
-                    <td className="text-right px-4 py-2 text-xs font-medium text-gray-600 dark:text-gray-400">
-                      Total Qty: {product.productTotalQty.toLocaleString("en-PK")}
-                    </td>
-                    <td />
-                    <td className="text-right px-4 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400">
-                      Total Value: {formatPKR(product.productTotalValue)}
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                        {variant.productName}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                        {variant.variantSize}
+                      </td>
+                      <td className="text-right px-4 py-3 text-gray-700 dark:text-gray-300">
+                        {variant.quantity.toLocaleString("en-PK")}
+                      </td>
+                      <td className="text-right px-4 py-3 text-gray-700 dark:text-gray-300">
+                        {formatPKR(variant.avgCost)}
+                      </td>
+                      <td className="text-right px-4 py-3 text-gray-700 dark:text-gray-300">
+                        {formatPKR(variant.inventoryValue)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
 
               {/* Grand total */}
-              {products.length > 0 && (
+              {variants.length > 0 && (
                 <tfoot>
                   <tr className="bg-blue-50 dark:bg-blue-900/20 border-t-2 border-blue-200 dark:border-blue-800">
                     <td
-                      colSpan={6}
+                      colSpan={4}
                       className="px-4 py-3 font-bold text-blue-700 dark:text-blue-400"
                     >
                       Grand Total Inventory Value
                     </td>
                     <td className="text-right px-4 py-3 font-bold text-blue-700 dark:text-blue-400 text-base">
-                      {formatPKR(report.grandTotalValue)}
+                      {formatPKR(report.totalInventoryValue)}
                     </td>
                   </tr>
                 </tfoot>

@@ -374,6 +374,22 @@ const TYPE_BADGE_COLORS: Record<PaymentAccountType, string> = {
   CARD: "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400",
 };
 
+function getCurrentBalance(account: ApiPaymentAccount) {
+  return account.breakdown?.currentBalance ?? account._computed?.currentBalance ?? 0;
+}
+
+function getOpeningBalance(account: ApiPaymentAccount) {
+  return account.breakdown?.openingBalance ?? account.openingBalance ?? 0;
+}
+
+function getTotalIn(account: ApiPaymentAccount) {
+  return account.breakdown?.moneyIn.totalAmount ?? account._computed?.totalIn ?? 0;
+}
+
+function getTotalOut(account: ApiPaymentAccount) {
+  return account.breakdown?.moneyOut.totalAmount ?? account._computed?.totalOut ?? 0;
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PaymentAccountsPage() {
@@ -428,7 +444,7 @@ export default function PaymentAccountsPage() {
     setPage(1);
   };
 
-  const totalBalance = accounts.reduce((sum, a) => sum + (a._computed?.currentBalance ?? 0), 0);
+  const totalBalance = accounts.reduce((sum, account) => sum + getCurrentBalance(account), 0);
 
   return (
     <div className="mx-auto w-full max-w-full">
@@ -508,10 +524,10 @@ export default function PaymentAccountsPage() {
       {/* Table */}
       <div className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px] whitespace-nowrap">
+          <table className="w-full min-w-[1100px] whitespace-nowrap">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50">
-                {(["Name", "Type", "Current Balance", "Opening Balance", "Status", "Actions"] as const).map(
+                {(["Name", "Type", "Current Balance", "Opening Balance", "Total In", "Total Out", "Status", "Actions"] as const).map(
                   (col) => (
                     <th
                       key={col}
@@ -529,7 +545,7 @@ export default function PaymentAccountsPage() {
               ) : accounts.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={8}
                     className="py-16 text-center text-sm text-gray-400 dark:text-gray-500"
                   >
                     No payment accounts found.{" "}
@@ -560,10 +576,16 @@ export default function PaymentAccountsPage() {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-sm font-medium text-gray-800 dark:text-gray-100">
-                      {formatPKR(account._computed?.currentBalance ?? 0)}
+                      {formatPKR(getCurrentBalance(account))}
                     </td>
                     <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">
-                      {formatPKR(account.openingBalance)}
+                      {formatPKR(getOpeningBalance(account))}
+                    </td>
+                    <td className="px-5 py-4 text-sm text-success-700 dark:text-success-400">
+                      {formatPKR(getTotalIn(account))}
+                    </td>
+                    <td className="px-5 py-4 text-sm text-error-700 dark:text-error-400">
+                      {formatPKR(getTotalOut(account))}
                     </td>
                     <td className="px-5 py-4">
                       <Badge

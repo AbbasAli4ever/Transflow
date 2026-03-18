@@ -282,13 +282,13 @@ export default function InternalTransferPage() {
 
             <div>
               <FieldLabel htmlFor="transfer-notes">Notes</FieldLabel>
-              <textarea
+              <input
                 id="transfer-notes"
-                rows={4}
+                type="text"
                 value={notes}
                 maxLength={1000}
                 onChange={(e) => setNotes(e.target.value)}
-                className={`${inputClass} min-h-[110px] resize-y`}
+                className={`${inputClass} h-11`}
                 placeholder="Optional notes for this transfer"
               />
               <p className="mt-1 text-right text-xs text-gray-500 dark:text-gray-400">{notes.length}/1000</p>

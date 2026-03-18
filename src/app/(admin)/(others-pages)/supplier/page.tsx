@@ -252,9 +252,9 @@ function SupplierDrawer({
 
             <div>
               <FieldLabel>Notes</FieldLabel>
-              <textarea
-                rows={3}
-                className={`${inputClass} resize-none`}
+              <input
+                type="text"
+                className={inputClass}
                 placeholder="Internal notes"
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}

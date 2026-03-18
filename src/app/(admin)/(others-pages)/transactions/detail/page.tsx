@@ -904,11 +904,11 @@ export default function TransactionDetailPage() {
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Notes
                 </label>
-                <textarea
+                <input
+                  type="text"
                   value={editForm.notes}
                   onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
                   className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                  rows={3}
                 />
               </div>
 

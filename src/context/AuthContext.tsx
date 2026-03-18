@@ -8,6 +8,7 @@ import React, {
   useCallback,
 } from "react";
 import {
+  AUTH_EXPIRED_EVENT,
   apiRequest,
   setTokens,
   clearTokens,
@@ -94,6 +95,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       "isLoggedIn=; path=/; max-age=0; SameSite=Lax";
   }
 
+  const forceLocalLogout = useCallback(() => {
+    clearTokens();
+    clearLoggedInCookie();
+    setUser(null);
+    if (window.location.pathname !== "/signin") {
+      window.location.href = "/signin";
+    }
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     const data = await apiRequest<AuthResponse>("/auth/login", {
       method: "POST",
@@ -143,6 +153,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setUser(null);
     window.location.href = "/signin";
   }, []);
+
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      forceLocalLogout();
+    };
+
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    return () => {
+      window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    };
+  }, [forceLocalLogout]);
 
   return (
     <AuthContext.Provider

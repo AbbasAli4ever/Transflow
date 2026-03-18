@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   HiOutlineArrowLeft,
   HiOutlineArrowsUpDown,
@@ -126,6 +126,7 @@ function PageSkeleton() {
 
 export default function TransactionDetailPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [id, setId] = useState<string | null>(null);
 
@@ -153,13 +154,20 @@ export default function TransactionDetailPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    const queryId = searchParams.get("id");
+    if (queryId) {
+      sessionStorage.setItem("transactionId", queryId);
+      setId(queryId);
+      return;
+    }
+
     const stored = sessionStorage.getItem("transactionId");
     if (!stored) {
       router.replace("/transactions");
       return;
     }
     setId(stored);
-  }, [router]);
+  }, [router, searchParams]);
 
   const loadTransaction = async (txId: string) => {
     setIsLoading(true);

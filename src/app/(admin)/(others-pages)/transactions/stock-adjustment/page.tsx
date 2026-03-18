@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -10,8 +9,10 @@ import {
   HiOutlineCheckCircle,
   HiOutlineExclamationTriangle,
   HiOutlineMagnifyingGlass,
+  HiOutlinePencilSquare,
   HiOutlinePlus,
   HiOutlineTrash,
+  HiOutlineXMark,
 } from "react-icons/hi2";
 import DatePicker from "@/components/form/date-picker";
 import Button from "@/components/ui/button/Button";
@@ -48,119 +49,6 @@ type StockVariant = {
   size: string;
   currentStock: number;
 };
-
-// Product Dropdown Cell Component with Portal
-function ProductDropdownCell({
-  line,
-  products,
-  loading,
-  isActive,
-  inputClass,
-  onQueryChange,
-  onFocus,
-  onSelectProduct,
-  onBlur,
-}: {
-  line: AdjustmentLine;
-  products: ApiProduct[];
-  loading: boolean;
-  isActive: boolean;
-  inputClass: string;
-  onQueryChange: (value: string) => void;
-  onFocus: () => void;
-  onSelectProduct: (product: ApiProduct) => void;
-  onBlur: () => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [dropdownPosition, setDropdownPosition] = useState<{
-    top: number;
-    left: number;
-    width: number;
-  } | null>(null);
-
-  useEffect(() => {
-    if (isActive && inputRef.current) {
-      const rect = inputRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + window.scrollY + 8, // 8px gap (mt-2)
-        left: rect.left + window.scrollX,
-        width: rect.width,
-      });
-    } else {
-      setDropdownPosition(null);
-    }
-  }, [isActive]);
-
-  useEffect(() => {
-    function handleOutsideClick(event: MouseEvent) {
-      if (
-        inputRef.current && 
-        !inputRef.current.contains(event.target as Node) &&
-        !(event.target as Element)?.closest('[data-dropdown="product"]')
-      ) {
-        onBlur();
-      }
-    }
-
-    if (isActive) {
-      document.addEventListener("mousedown", handleOutsideClick);
-      return () => document.removeEventListener("mousedown", handleOutsideClick);
-    }
-  }, [isActive, onBlur]);
-
-  return (
-    <>
-      <div className="relative min-w-[220px]">
-        <div className="relative">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            <HiOutlineMagnifyingGlass size={16} />
-          </span>
-          <input
-            ref={inputRef}
-            value={line.productQuery}
-            onChange={(e) => onQueryChange(e.target.value)}
-            onFocus={onFocus}
-            placeholder={loading ? "Loading products..." : "Search product"}
-            className={`${inputClass} pl-10`}
-            disabled={loading}
-          />
-        </div>
-      </div>
-      
-      {isActive &&
-        dropdownPosition &&
-        typeof window !== "undefined" &&
-        createPortal(
-          <div
-            data-dropdown="product"
-            className="fixed z-[9999] max-h-64 overflow-auto rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900"
-            style={{
-              top: dropdownPosition.top,
-              left: dropdownPosition.left,
-              width: dropdownPosition.width,
-            }}
-          >
-            {products.length === 0 ? (
-              <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No products found.</p>
-            ) : (
-              products.map((product) => (
-                <button
-                  key={product.id}
-                  type="button"
-                  onClick={() => onSelectProduct(product)}
-                  className="block w-full rounded-xl px-3 py-2 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]"
-                >
-                  <span className="block text-sm font-medium text-gray-800 dark:text-white/90">{product.name}</span>
-                  <span className="block text-xs text-gray-500 dark:text-gray-400">{product.sku || "No SKU"}</span>
-                </button>
-              ))
-            )}
-          </div>,
-          document.body
-        )}
-    </>
-  );
-}
 
 function generateId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -228,13 +116,17 @@ export default function StockAdjustmentPage() {
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [stockByProductId, setStockByProductId] = useState<Record<string, StockVariant[]>>({});
   const [stockLoadingByProductId, setStockLoadingByProductId] = useState<Record<string, boolean>>({});
-  const [lines, setLines] = useState<AdjustmentLine[]>([createEmptyLine()]);
+  const [lines, setLines] = useState<AdjustmentLine[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [activeProductPickerId, setActiveProductPickerId] = useState<string | null>(null);
+  const [lineComposerOpen, setLineComposerOpen] = useState(false);
+  const [lineComposer, setLineComposer] = useState<AdjustmentLine>(createEmptyLine());
+  const [lineComposerError, setLineComposerError] = useState<string | null>(null);
+  const [lineComposerProductOpen, setLineComposerProductOpen] = useState(false);
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
 
   const [transactionDate, setTransactionDate] = useState(getCurrentDateSafe());
   const [notes, setNotes] = useState("");
@@ -275,6 +167,15 @@ export default function StockAdjustmentPage() {
 
   const canPost = user?.role === "OWNER" || user?.role === "ADMIN";
 
+  useEffect(() => {
+    if (!lineComposerOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [lineComposerOpen]);
+
   const ensureProductStock = async (productId: string) => {
     if (!productId || stockByProductId[productId] || stockLoadingByProductId[productId]) {
       return;
@@ -298,51 +199,141 @@ export default function StockAdjustmentPage() {
     }
   };
 
-  const updateLine = (lineId: string, updates: Partial<AdjustmentLine>) => {
-    setLines((current) => current.map((line) => (line.id === lineId ? { ...line, ...updates } : line)));
+  const composerProducts = useMemo(() => {
+    const query = lineComposer.productQuery.trim().toLowerCase();
+    if (!query) return products;
+    return products.filter((product) => {
+      return (
+        product.name.toLowerCase().includes(query) ||
+        (product.sku ?? "").toLowerCase().includes(query)
+      );
+    });
+  }, [lineComposer.productQuery, products]);
+
+  const composerSelectedProduct = useMemo(() => {
+    return products.find((product) => product.id === lineComposer.productId) ?? null;
+  }, [lineComposer.productId, products]);
+
+  const composerActiveVariants = useMemo(() => {
+    return (composerSelectedProduct?.variants ?? []).filter((variant) => variant.status === "ACTIVE");
+  }, [composerSelectedProduct]);
+
+  const composerSelectedVariant = useMemo(() => {
+    return composerActiveVariants.find((variant) => variant.id === lineComposer.variantId) ?? null;
+  }, [composerActiveVariants, lineComposer.variantId]);
+
+  const composerStockVariants = lineComposer.productId ? stockByProductId[lineComposer.productId] ?? [] : [];
+
+  const composerSelectedStock = useMemo(() => {
+    if (!lineComposer.variantId) return null;
+    return composerStockVariants.find((item) => item.variantId === lineComposer.variantId) ?? null;
+  }, [composerStockVariants, lineComposer.variantId]);
+
+  const openLineComposer = () => {
+    setEditingLineId(null);
+    setLineComposer(createEmptyLine());
+    setLineComposerError(null);
+    setLineComposerProductOpen(false);
+    setLineComposerOpen(true);
   };
 
-  const handleDirectionChange = (lineId: string, direction: AdjustmentDirection) => {
-    setLines((current) =>
-      current.map((line) =>
-        line.id === lineId
-          ? {
-              ...line,
-              direction,
-              unitCost: direction === "IN" ? line.unitCost : "",
-            }
-          : line
-      )
-    );
+  const openLineComposerForEdit = (lineId: string) => {
+    const target = lines.find((line) => line.id === lineId);
+    if (!target) return;
+
+    setEditingLineId(lineId);
+    setLineComposer({ ...target });
+    setLineComposerError(null);
+    setLineComposerProductOpen(false);
+    setLineComposerOpen(true);
+    void ensureProductStock(target.productId);
   };
 
-  const handleProductQueryChange = (lineId: string, nextQuery: string) => {
-    setLines((current) =>
-      current.map((line) =>
-        line.id === lineId
-          ? { ...line, productQuery: nextQuery, productId: "", variantId: "" }
-          : line
-      )
-    );
-    setActiveProductPickerId(lineId);
+  const closeLineComposer = () => {
+    setLineComposerOpen(false);
+    setLineComposerProductOpen(false);
+    setLineComposerError(null);
+    setEditingLineId(null);
   };
 
-  const handleSelectProduct = async (lineId: string, product: ApiProduct) => {
-    setLines((current) =>
-      current.map((line) =>
-        line.id === lineId
-          ? { ...line, productId: product.id, productQuery: product.name, variantId: "" }
-          : line
-      )
-    );
-    setActiveProductPickerId(null);
-    setValidationError(null);
+  const handleComposerSelectProduct = async (product: ApiProduct) => {
+    setLineComposer((current) => ({
+      ...current,
+      productId: product.id,
+      productQuery: product.name,
+      variantId: "",
+    }));
+    setLineComposerProductOpen(false);
+    setLineComposerError(null);
     await ensureProductStock(product.id);
   };
 
-  const addLine = () => setLines((current) => [...current, createEmptyLine()]);
-  const removeLine = (lineId: string) =>
-    setLines((current) => (current.length === 1 ? current : current.filter((line) => line.id !== lineId)));
+  const saveLineFromComposer = () => {
+    if (!lineComposer.productId || !composerSelectedProduct) {
+      setLineComposerError("Select a product.");
+      return;
+    }
+    if (!lineComposer.variantId || !composerSelectedVariant) {
+      setLineComposerError("Select a size / variant.");
+      return;
+    }
+    if (!Number.isFinite(lineComposer.quantity) || lineComposer.quantity < 1) {
+      setLineComposerError("Quantity must be at least 1.");
+      return;
+    }
+    if (lineComposer.direction === "IN") {
+      if (lineComposer.unitCost === "" || !Number.isFinite(Number(lineComposer.unitCost))) {
+        setLineComposerError("Unit cost is required for IN adjustments.");
+        return;
+      }
+      if (!Number.isInteger(Number(lineComposer.unitCost)) || Number(lineComposer.unitCost) < 1) {
+        setLineComposerError("Unit cost must be a whole number of at least 1.");
+        return;
+      }
+    }
+    if (lineComposer.direction === "OUT" && composerSelectedStock && lineComposer.quantity > composerSelectedStock.currentStock) {
+      setLineComposerError(`OUT quantity exceeds current stock (${composerSelectedStock.currentStock}).`);
+      return;
+    }
+    if (!lineComposer.reason.trim()) {
+      setLineComposerError("Reason is required.");
+      return;
+    }
+    if (lineComposer.reason.trim().length > 500) {
+      setLineComposerError("Reason cannot exceed 500 characters.");
+      return;
+    }
+
+    const normalizedLine: AdjustmentLine = {
+      ...lineComposer,
+      id: editingLineId ?? generateId(),
+      quantity: Math.max(1, Math.trunc(lineComposer.quantity)),
+      unitCost:
+        lineComposer.direction === "IN"
+          ? Math.max(1, Math.trunc(Number(lineComposer.unitCost || 1)))
+          : "",
+      reason: lineComposer.reason.trim(),
+    };
+
+    if (editingLineId) {
+      setLines((current) =>
+        current.map((line) => (line.id === editingLineId ? normalizedLine : line))
+      );
+    } else {
+      setLines((current) => [...current, normalizedLine]);
+    }
+
+    closeLineComposer();
+    setValidationError(null);
+  };
+
+  const removeLine = (lineId: string) => {
+    setLines((current) => current.filter((line) => line.id !== lineId));
+  };
+
+  const blockWheelIncrement: React.WheelEventHandler<HTMLInputElement> = (event) => {
+    event.currentTarget.blur();
+  };
 
   const totals = useMemo(() => {
     const totalLines = lines.length;
@@ -488,17 +479,12 @@ export default function StockAdjustmentPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className={`${panelClass} overflow-visible`}>
           <div className="border-b border-gray-200 px-6 py-5 dark:border-gray-800">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Adjustment Details</h2>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Set the date, note the reason, and add one or more product adjustments.</p>
-                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  IN adjustments carry value now, so unit cost is required whenever stock is added in.
-                </p>
-              </div>
-              <Button size="sm" variant="outline" onClick={addLine} startIcon={<HiOutlinePlus size={16} />}>
-                Add Line
-              </Button>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Adjustment Details</h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Set the date, note the reason, and add one or more product adjustments.</p>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                IN adjustments carry value now, so unit cost is required whenever stock is added in.
+              </p>
             </div>
           </div>
 
@@ -545,134 +531,103 @@ export default function StockAdjustmentPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                  {lines.map((line) => {
-                    const selectedProduct = products.find((product) => product.id === line.productId) ?? null;
-                    const activeVariants = (selectedProduct?.variants ?? []).filter((variant) => variant.status === "ACTIVE");
-                    const productMatches = products.filter((product) => {
-                      const query = line.productQuery.trim().toLowerCase();
-                      if (!query) return true;
-                      return product.name.toLowerCase().includes(query) || (product.sku ?? "").toLowerCase().includes(query);
-                    });
-                    const stockVariants = stockByProductId[line.productId] ?? [];
-                    const selectedStock = stockVariants.find((item) => item.variantId === line.variantId);
-                    const outWarning = line.direction === "OUT" && selectedStock && line.quantity > selectedStock.currentStock;
-
-                    return (
-                      <tr key={line.id} className="align-top">
-                        <td className="px-4 py-4">
-                          <ProductDropdownCell
-                            line={line}
-                            products={productMatches}
-                            loading={loading}
-                            isActive={activeProductPickerId === line.id}
-                            inputClass={inputClass}
-                            onQueryChange={(value) => handleProductQueryChange(line.id, value)}
-                            onFocus={() => setActiveProductPickerId(line.id)}
-                            onSelectProduct={(product) => void handleSelectProduct(line.id, product)}
-                            onBlur={() => setActiveProductPickerId(null)}
-                          />
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="min-w-[220px]">
-                            <select
-                              value={line.variantId}
-                              onChange={(e) => updateLine(line.id, { variantId: e.target.value })}
-                              className={inputClass}
-                              disabled={!selectedProduct}
+                  {lines.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8">
+                        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50/70 p-5 text-center dark:border-gray-700 dark:bg-gray-900/30">
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            No adjustment lines added yet.
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Use the composer button below to add your first adjustment line.
+                          </p>
+                          <div className="pt-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={openLineComposer}
+                              startIcon={<HiOutlinePlus size={16} />}
                             >
-                              <option value="">Select size</option>
-                              {activeVariants.map((variant) => {
-                                const stock = stockVariants.find((item) => item.variantId === variant.id);
-                                return (
-                                  <option key={variant.id} value={variant.id}>
-                                    {variant.size}
-                                    {stock ? ` - ${stock.currentStock} in stock` : ""}
-                                  </option>
-                                );
-                              })}
-                            </select>
-                            {!selectedProduct && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Pick a product first.</p>}
-                            {selectedProduct && stockLoadingByProductId[selectedProduct.id] && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Loading stock...</p>}
-                            {selectedStock && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Current stock: {selectedStock.currentStock}</p>}
-                            {outWarning && <p className="mt-1 text-xs text-warning-600 dark:text-warning-400">OUT quantity exceeds current stock.</p>}
+                              Add Line Item
+                            </Button>
                           </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <select
-                            value={line.direction}
-                            onChange={(e) => handleDirectionChange(line.id, e.target.value as AdjustmentDirection)}
-                            className={`${inputClass} min-w-[130px] ${line.direction === "IN" ? "border-success-200 text-success-700" : "border-error-200 text-error-700"}`}
-                          >
-                            <option value="IN">IN</option>
-                            <option value="OUT">OUT</option>
-                          </select>
-                        </td>
-                        <td className="px-4 py-4">
-                          <input
-                            type="number"
-                            min={1}
-                            value={line.quantity}
-                            onChange={(e) => updateLine(line.id, { quantity: Math.max(1, Number(e.target.value || 1)) })}
-                            className={`${inputClass} min-w-[96px]`}
-                          />
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="min-w-[180px]">
-                            {line.direction === "IN" ? (
-                              <>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  step={1}
-                                  value={line.unitCost}
-                                  onChange={(e) => {
-                                    const nextValue = e.target.value;
-                                    updateLine(line.id, {
-                                      unitCost:
-                                        nextValue === "" ? "" : Math.max(1, Math.trunc(Number(nextValue))),
-                                    });
-                                  }}
-                                  className={inputClass}
-                                  placeholder="Enter unit cost"
-                                />
-                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                  Required for stock added in. Value impact:{" "}
-                                  {line.unitCost === "" ? "—" : formatPKR(line.quantity * Number(line.unitCost))}
-                                </p>
-                              </>
-                            ) : (
-                              <div className="rounded-xl border border-dashed border-gray-200 px-4 py-2.5 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                Uses current avg cost at posting.
-                              </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    lines.map((line) => {
+                      const selectedProduct = products.find((product) => product.id === line.productId) ?? null;
+                      const selectedVariant = selectedProduct?.variants.find((variant) => variant.id === line.variantId) ?? null;
+                      const stockVariants = stockByProductId[line.productId] ?? [];
+                      const selectedStock = stockVariants.find((item) => item.variantId === line.variantId);
+                      const outWarning = line.direction === "OUT" && !!selectedStock && line.quantity > selectedStock.currentStock;
+
+                      return (
+                        <tr key={line.id} className="align-top">
+                          <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
+                            {selectedProduct?.name || line.productQuery || "—"}
+                          </td>
+                          <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
+                            <p>{selectedVariant?.size || "—"}</p>
+                            {selectedStock && (
+                              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                Current stock: {selectedStock.currentStock}
+                              </p>
                             )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="min-w-[240px]">
-                            <input
-                              value={line.reason}
-                              maxLength={500}
-                              onChange={(e) => updateLine(line.id, { reason: e.target.value })}
-                              className={inputClass}
-                              placeholder="Reason for adjustment"
-                            />
-                            <p className="mt-1 text-right text-xs text-gray-500 dark:text-gray-400">{line.reason.length}/500</p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => removeLine(line.id)}
-                            disabled={lines.length === 1}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:border-error-200 hover:bg-error-50 hover:text-error-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-400"
-                            aria-label="Remove line"
-                          >
-                            <HiOutlineTrash size={18} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                            {outWarning && (
+                              <p className="mt-1 text-xs text-warning-600 dark:text-warning-400">
+                                OUT quantity exceeds current stock.
+                              </p>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 text-sm font-medium text-gray-700 dark:text-gray-200">
+                            <span className={line.direction === "IN" ? "text-success-700 dark:text-success-400" : "text-error-700 dark:text-error-400"}>
+                              {line.direction}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-200">{line.quantity}</td>
+                          <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
+                            {line.direction === "IN" && line.unitCost !== "" ? formatPKR(Number(line.unitCost)) : "Uses avg cost"}
+                          </td>
+                          <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-200">{line.reason || "—"}</td>
+                          <td className="px-4 py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => openLineComposerForEdit(line.id)}
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-brand-500/30 dark:hover:bg-brand-500/10 dark:hover:text-brand-400"
+                                aria-label="Edit line"
+                              >
+                                <HiOutlinePencilSquare size={18} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeLine(line.id)}
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:border-error-200 hover:bg-error-50 hover:text-error-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-error-500/30 dark:hover:bg-error-500/10 dark:hover:text-error-400"
+                                aria-label="Remove line"
+                              >
+                                <HiOutlineTrash size={18} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                  {lines.length > 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={openLineComposer}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50/70 px-4 py-3 text-sm font-medium text-gray-600 transition hover:border-brand-300 hover:bg-brand-50/70 hover:text-brand-700 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-300 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-300"
+                        >
+                          <HiOutlinePlus size={16} />
+                          Add another line item
+                        </button>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -731,6 +686,250 @@ export default function StockAdjustmentPage() {
           </section>
         </aside>
       </div>
+
+      {lineComposerOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[70] bg-gray-950/45 backdrop-blur-[1px]"
+            onClick={closeLineComposer}
+          />
+          <div className="fixed inset-y-0 right-0 z-[80] w-full max-w-xl border-l border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex h-full flex-col">
+              <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5 dark:border-gray-800">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {editingLineId ? "Edit Adjustment Line" : "Add Adjustment Line"}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Pick product and variant first, then set direction, quantity, cost, and reason.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeLineComposer}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+                  aria-label="Close line composer"
+                >
+                  <HiOutlineXMark size={18} />
+                </button>
+              </div>
+
+              <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
+                <div className="relative">
+                  <FieldLabel htmlFor="composer-product" required>
+                    Product
+                  </FieldLabel>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                      <HiOutlineMagnifyingGlass size={18} />
+                    </span>
+                    <input
+                      id="composer-product"
+                      value={lineComposer.productQuery}
+                      onChange={(e) => {
+                        const query = e.target.value;
+                        setLineComposer((current) => ({
+                          ...current,
+                          productQuery: query,
+                          productId: "",
+                          variantId: "",
+                        }));
+                        setLineComposerProductOpen(true);
+                      }}
+                      onFocus={() => setLineComposerProductOpen(true)}
+                      placeholder={loading ? "Loading products..." : "Search product"}
+                      className={`${inputClass} pl-11 pr-10`}
+                      disabled={loading}
+                    />
+                    {lineComposer.productQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLineComposer((current) => ({
+                            ...current,
+                            productId: "",
+                            productQuery: "",
+                            variantId: "",
+                          }));
+                          setLineComposerProductOpen(false);
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition hover:text-gray-600 dark:hover:text-gray-200"
+                        aria-label="Clear product"
+                      >
+                        <HiOutlineXMark size={18} />
+                      </button>
+                    )}
+                  </div>
+
+                  {lineComposerProductOpen && (
+                    <div className="absolute z-30 mt-2 max-h-64 w-full overflow-auto rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900">
+                      {composerProducts.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No products found.</p>
+                      ) : (
+                        composerProducts.map((product) => (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => void handleComposerSelectProduct(product)}
+                            className="block w-full rounded-xl px-3 py-2 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]"
+                          >
+                            <span className="block text-sm font-medium text-gray-800 dark:text-white/90">{product.name}</span>
+                            <span className="block text-xs text-gray-500 dark:text-gray-400">{product.sku || "No SKU"}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <FieldLabel htmlFor="composer-variant" required>
+                    Size / Variant
+                  </FieldLabel>
+                  <select
+                    id="composer-variant"
+                    value={lineComposer.variantId}
+                    onChange={(e) => setLineComposer((current) => ({ ...current, variantId: e.target.value }))}
+                    className={inputClass}
+                    disabled={!composerSelectedProduct}
+                  >
+                    <option value="">Select size</option>
+                    {composerActiveVariants.map((variant) => {
+                      const stock = composerStockVariants.find((item) => item.variantId === variant.id);
+                      return (
+                        <option key={variant.id} value={variant.id}>
+                          {variant.size}
+                          {stock ? ` - ${stock.currentStock} in stock` : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {!composerSelectedProduct && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Pick a product first.</p>
+                  )}
+                  {composerSelectedProduct && stockLoadingByProductId[composerSelectedProduct.id] && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Loading stock...</p>
+                  )}
+                  {composerSelectedStock && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Current stock: {composerSelectedStock.currentStock}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <FieldLabel htmlFor="composer-direction" required>
+                    Direction
+                  </FieldLabel>
+                  <select
+                    id="composer-direction"
+                    value={lineComposer.direction}
+                    onChange={(e) =>
+                      setLineComposer((current) => ({
+                        ...current,
+                        direction: e.target.value as AdjustmentDirection,
+                        unitCost: e.target.value === "IN" ? current.unitCost : "",
+                      }))
+                    }
+                    className={`${inputClass} ${lineComposer.direction === "IN" ? "border-success-200 text-success-700" : "border-error-200 text-error-700"}`}
+                  >
+                    <option value="IN">IN</option>
+                    <option value="OUT">OUT</option>
+                  </select>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <FieldLabel htmlFor="composer-qty" required>
+                      Quantity
+                    </FieldLabel>
+                    <input
+                      id="composer-qty"
+                      type="number"
+                      min={1}
+                      value={lineComposer.quantity}
+                      onChange={(e) =>
+                        setLineComposer((current) => ({
+                          ...current,
+                          quantity: Math.max(1, Math.trunc(Number(e.target.value || 1))),
+                        }))
+                      }
+                      onWheel={blockWheelIncrement}
+                      className={inputClass}
+                    />
+                  </div>
+                  {lineComposer.direction === "IN" && (
+                    <div>
+                      <FieldLabel htmlFor="composer-unit-cost" required>
+                        Unit Cost
+                      </FieldLabel>
+                      <input
+                        id="composer-unit-cost"
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={lineComposer.unitCost}
+                        onChange={(e) => {
+                          const nextValue = e.target.value;
+                          setLineComposer((current) => ({
+                            ...current,
+                            unitCost: nextValue === "" ? "" : Math.max(1, Math.trunc(Number(nextValue))),
+                          }));
+                        }}
+                        onWheel={blockWheelIncrement}
+                        className={inputClass}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {lineComposer.direction === "IN" && lineComposer.unitCost !== "" && (
+                  <div className="rounded-xl border border-success-100 bg-success-50 px-4 py-3 text-xs text-success-700 dark:border-success-500/25 dark:bg-success-500/10 dark:text-success-300">
+                    Value impact: {formatPKR(lineComposer.quantity * Number(lineComposer.unitCost))}
+                  </div>
+                )}
+                {lineComposer.direction === "OUT" && (
+                  <div className="rounded-xl border border-dashed border-gray-200 px-4 py-3 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                    OUT adjustments are validated against available stock and posted using current average cost.
+                  </div>
+                )}
+
+                <div>
+                  <FieldLabel htmlFor="composer-reason" required>
+                    Reason
+                  </FieldLabel>
+                  <input
+                    id="composer-reason"
+                    value={lineComposer.reason}
+                    maxLength={500}
+                    onChange={(e) => setLineComposer((current) => ({ ...current, reason: e.target.value }))}
+                    className={inputClass}
+                    placeholder="Reason for adjustment"
+                  />
+                  <p className="mt-1 text-right text-xs text-gray-500 dark:text-gray-400">
+                    {lineComposer.reason.length}/500
+                  </p>
+                </div>
+
+                {lineComposerError && (
+                  <div className="rounded-xl border border-warning-100 bg-warning-50 px-3 py-2 text-xs text-warning-700 dark:border-warning-500/20 dark:bg-warning-500/10 dark:text-warning-300">
+                    {lineComposerError}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4 dark:border-gray-800">
+                <Button variant="outline" onClick={closeLineComposer}>
+                  Cancel
+                </Button>
+                <Button onClick={saveLineFromComposer} startIcon={<HiOutlinePlus size={16} />}>
+                  {editingLineId ? "Update Line" : "Add Line"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

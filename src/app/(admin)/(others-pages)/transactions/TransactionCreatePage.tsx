@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -11,6 +10,7 @@ import {
   HiOutlineCheckCircle,
   HiOutlineExclamationTriangle,
   HiOutlineMagnifyingGlass,
+  HiOutlinePencilSquare,
   HiOutlinePlus,
   HiOutlineTrash,
   HiOutlineXMark,
@@ -21,7 +21,7 @@ import DatePicker from "@/components/form/date-picker";
 import { ApiError } from "@/lib/api";
 import { ApiCustomer, getCustomerBalance, listCustomers } from "@/lib/customers";
 import { ApiPaymentAccount, listPaymentAccounts } from "@/lib/paymentAccounts";
-import { ApiProduct, getProductStock, listProducts, ProductVariant } from "@/lib/products";
+import { ApiProduct, getProductStock, listProducts } from "@/lib/products";
 import {
   ApiSupplier,
   ApiTransaction,
@@ -37,6 +37,9 @@ import {
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500";
+
+const numberInputClass =
+  "w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500";
 
 const panelClass =
   "rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03]";
@@ -95,14 +98,18 @@ function createEmptyLine(): LineItemState {
     productId: "",
     productQuery: "",
     variantId: "",
-    quantity: 1,
-    unitAmount: 1,
+    quantity: 0,
+    unitAmount: 0,
     discountAmount: 0,
   };
 }
 
 function getLineTotal(line: LineItemState) {
   return Math.max(line.quantity * line.unitAmount - line.discountAmount, 0);
+}
+
+function blockWheelIncrement(event: React.WheelEvent<HTMLInputElement>) {
+  event.currentTarget.blur();
 }
 
 function FieldLabel({
@@ -122,119 +129,6 @@ function FieldLabel({
       {children}
       {required && <span className="ml-0.5 text-error-500">*</span>}
     </label>
-  );
-}
-
-// Product Dropdown Cell Component with Portal
-function ProductDropdownCell({
-  line,
-  products,
-  productsLoading,
-  isActive,
-  inputClass,
-  onQueryChange,
-  onFocus,
-  onSelectProduct,
-  onBlur,
-}: {
-  line: any;
-  products: ApiProduct[];
-  productsLoading: boolean;
-  isActive: boolean;
-  inputClass: string;
-  onQueryChange: (value: string) => void;
-  onFocus: () => void;
-  onSelectProduct: (product: ApiProduct) => void;
-  onBlur: () => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [dropdownPosition, setDropdownPosition] = useState<{
-    top: number;
-    left: number;
-    width: number;
-  } | null>(null);
-
-  useEffect(() => {
-    if (isActive && inputRef.current) {
-      const rect = inputRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + window.scrollY + 8, // 8px gap (mt-2)
-        left: rect.left + window.scrollX,
-        width: rect.width,
-      });
-    } else {
-      setDropdownPosition(null);
-    }
-  }, [isActive]);
-
-  useEffect(() => {
-    function handleOutsideClick(event: MouseEvent) {
-      if (
-        inputRef.current && 
-        !inputRef.current.contains(event.target as Node) &&
-        !(event.target as Element)?.closest('[data-dropdown="product"]')
-      ) {
-        onBlur();
-      }
-    }
-
-    if (isActive) {
-      document.addEventListener("mousedown", handleOutsideClick);
-      return () => document.removeEventListener("mousedown", handleOutsideClick);
-    }
-  }, [isActive, onBlur]);
-
-  return (
-    <>
-      <div className="relative min-w-[220px]">
-        <div className="relative">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            <HiOutlineMagnifyingGlass size={16} />
-          </span>
-          <input
-            ref={inputRef}
-            value={line.productQuery}
-            onChange={(e) => onQueryChange(e.target.value)}
-            onFocus={onFocus}
-            placeholder={productsLoading ? "Loading products..." : "Search product"}
-            className={`${inputClass} pl-10`}
-            disabled={productsLoading}
-          />
-        </div>
-      </div>
-      
-      {isActive &&
-        dropdownPosition &&
-        typeof window !== "undefined" &&
-        createPortal(
-          <div
-            data-dropdown="product"
-            className="fixed z-[9999] max-h-64 overflow-auto rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900"
-            style={{
-              top: dropdownPosition.top,
-              left: dropdownPosition.left,
-              width: dropdownPosition.width,
-            }}
-          >
-            {products.length === 0 ? (
-              <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No products found.</p>
-            ) : (
-              products.map((product) => (
-                <button
-                  key={product.id}
-                  type="button"
-                  onClick={() => onSelectProduct(product)}
-                  className="block w-full rounded-xl px-3 py-2 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]"
-                >
-                  <span className="block text-sm font-medium text-gray-800 dark:text-white/90">{product.name}</span>
-                  <span className="block text-xs text-gray-500 dark:text-gray-400">{product.sku || "No SKU"}</span>
-                </button>
-              ))
-            )}
-          </div>,
-          document.body
-        )}
-    </>
   );
 }
 
@@ -348,7 +242,8 @@ function TransactionPostModal({
                 max={draft.totalAmount}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className={inputClass}
+                onWheel={blockWheelIncrement}
+                className={numberInputClass}
               />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Max {formatPKR(draft.totalAmount)}
@@ -444,10 +339,18 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<LineItemState[]>([createEmptyLine()]);
-  const [activeProductPickerId, setActiveProductPickerId] = useState<string | null>(null);
+  const [lines, setLines] = useState<LineItemState[]>([]);
   const [stockByProductId, setStockByProductId] = useState<Record<string, ProductStockVariant[]>>({});
   const [stockLoadingByProductId, setStockLoadingByProductId] = useState<Record<string, boolean>>({});
+  const [lineComposerOpen, setLineComposerOpen] = useState(false);
+  const [lineComposer, setLineComposer] = useState<LineItemState>(createEmptyLine());
+  const [lineComposerError, setLineComposerError] = useState<string | null>(null);
+  const [lineComposerProductOpen, setLineComposerProductOpen] = useState(false);
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [costHintMessage, setCostHintMessage] = useState<string | null>(null);
+  const [costHintSecondsLeft, setCostHintSecondsLeft] = useState(0);
+  const costHintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const costHintIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [validationError, setValidationError] = useState<string | null>(null);
   const [draftSubmitting, setDraftSubmitting] = useState(false);
@@ -573,6 +476,50 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
     [partyId, partyOptions]
   );
 
+  const composerProducts = useMemo(() => {
+    const query = lineComposer.productQuery.trim().toLowerCase();
+    if (!query) return products;
+    return products.filter((product) => {
+      return (
+        product.name.toLowerCase().includes(query) ||
+        (product.sku ?? "").toLowerCase().includes(query)
+      );
+    });
+  }, [lineComposer.productQuery, products]);
+
+  const composerSelectedProduct = useMemo(() => {
+    return products.find((product) => product.id === lineComposer.productId) ?? null;
+  }, [lineComposer.productId, products]);
+
+  const composerActiveVariants = useMemo(() => {
+    return (composerSelectedProduct?.variants ?? []).filter((variant) => variant.status === "ACTIVE");
+  }, [composerSelectedProduct]);
+
+  const composerSelectedVariant = useMemo(() => {
+    return composerActiveVariants.find((variant) => variant.id === lineComposer.variantId) ?? null;
+  }, [composerActiveVariants, lineComposer.variantId]);
+
+  const composerStockVariants = useMemo(() => {
+    return stockByProductId[lineComposer.productId] ?? [];
+  }, [lineComposer.productId, stockByProductId]);
+
+  const composerSelectedStock = useMemo(() => {
+    return composerStockVariants.find((item) => item.variantId === lineComposer.variantId);
+  }, [composerStockVariants, lineComposer.variantId]);
+
+  const composerAvgCost = useMemo(() => {
+    if (!composerSelectedProduct) return null;
+    if (lineComposer.variantId) {
+      return composerSelectedStock?.avgCost ?? composerSelectedVariant?.avgCost ?? null;
+    }
+    return composerSelectedProduct.avgCost ?? null;
+  }, [
+    composerSelectedProduct,
+    composerSelectedStock,
+    composerSelectedVariant,
+    lineComposer.variantId,
+  ]);
+
   const ensureProductStock = async (productId: string) => {
     if (!productId || stockByProductId[productId] || stockLoadingByProductId[productId]) {
       return;
@@ -597,10 +544,6 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
     }
   };
 
-  const updateLine = (lineId: string, updates: Partial<LineItemState>) => {
-    setLines((current) => current.map((line) => (line.id === lineId ? { ...line, ...updates } : line)));
-  };
-
   const selectParty = (party: PartyOption) => {
     setPartyId(party.id);
     setPartyQuery(party.name);
@@ -608,46 +551,166 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
     setValidationError(null);
   };
 
-  const handleProductQueryChange = (lineId: string, nextQuery: string) => {
-    setLines((current) =>
-      current.map((line) =>
-        line.id === lineId
-          ? {
-              ...line,
-              productQuery: nextQuery,
-              productId: "",
-              variantId: "",
-            }
-          : line
-      )
-    );
-    setActiveProductPickerId(lineId);
+  useEffect(() => {
+    if (!lineComposerOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [lineComposerOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (costHintTimeoutRef.current) {
+        clearTimeout(costHintTimeoutRef.current);
+      }
+      if (costHintIntervalRef.current) {
+        clearInterval(costHintIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const showCostHintToast = (message: string, durationSeconds = 4) => {
+    if (costHintTimeoutRef.current) {
+      clearTimeout(costHintTimeoutRef.current);
+    }
+    if (costHintIntervalRef.current) {
+      clearInterval(costHintIntervalRef.current);
+    }
+
+    setCostHintMessage(message);
+    setCostHintSecondsLeft(durationSeconds);
+
+    costHintIntervalRef.current = setInterval(() => {
+      setCostHintSecondsLeft((current) => {
+        if (current <= 1) {
+          if (costHintIntervalRef.current) {
+            clearInterval(costHintIntervalRef.current);
+            costHintIntervalRef.current = null;
+          }
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+
+    costHintTimeoutRef.current = setTimeout(() => {
+      setCostHintMessage(null);
+      setCostHintSecondsLeft(0);
+      if (costHintIntervalRef.current) {
+        clearInterval(costHintIntervalRef.current);
+        costHintIntervalRef.current = null;
+      }
+      costHintTimeoutRef.current = null;
+    }, durationSeconds * 1000);
   };
 
-  const handleSelectProduct = async (lineId: string, product: ApiProduct) => {
-    setLines((current) =>
-      current.map((line) =>
-        line.id === lineId
-          ? {
-              ...line,
-              productId: product.id,
-              productQuery: product.name,
-              variantId: "",
-            }
-          : line
-      )
-    );
-    setActiveProductPickerId(null);
-    setValidationError(null);
+  const openLineComposer = () => {
+    setEditingLineId(null);
+    setLineComposer(createEmptyLine());
+    setLineComposerError(null);
+    setLineComposerProductOpen(false);
+    setLineComposerOpen(true);
+  };
+
+  const openLineComposerForEdit = (lineId: string) => {
+    const target = lines.find((line) => line.id === lineId);
+    if (!target) return;
+
+    setEditingLineId(lineId);
+    setLineComposer({ ...target });
+    setLineComposerError(null);
+    setLineComposerProductOpen(false);
+    setLineComposerOpen(true);
+    void ensureProductStock(target.productId);
+  };
+
+  const closeLineComposer = () => {
+    setLineComposerOpen(false);
+    setLineComposerProductOpen(false);
+    setLineComposerError(null);
+    setEditingLineId(null);
+  };
+
+  const handleComposerSelectProduct = async (product: ApiProduct) => {
+    setLineComposer((current) => ({
+      ...current,
+      productId: product.id,
+      productQuery: product.name,
+      variantId: "",
+    }));
+    setLineComposerProductOpen(false);
+    setLineComposerError(null);
     await ensureProductStock(product.id);
   };
 
-  const addLine = () => {
-    setLines((current) => [...current, createEmptyLine()]);
+  const addLineFromComposer = () => {
+    if (!lineComposer.productId || !composerSelectedProduct) {
+      setLineComposerError("Select a product.");
+      return;
+    }
+    if (!lineComposer.variantId) {
+      setLineComposerError("Select a size / variant.");
+      return;
+    }
+    if (!Number.isFinite(lineComposer.quantity) || lineComposer.quantity < 1) {
+      setLineComposerError("Quantity must be at least 1.");
+      return;
+    }
+    if (!Number.isFinite(lineComposer.unitAmount) || lineComposer.unitAmount < 1) {
+      setLineComposerError(`${isPurchase ? "Unit cost" : "Unit price"} must be at least 1.`);
+      return;
+    }
+    if (!Number.isFinite(lineComposer.discountAmount) || lineComposer.discountAmount < 0) {
+      setLineComposerError("Discount cannot be negative.");
+      return;
+    }
+    if (lineComposer.discountAmount > lineComposer.quantity * lineComposer.unitAmount) {
+      setLineComposerError("Discount cannot exceed the line amount.");
+      return;
+    }
+    if (isSale && composerSelectedStock && lineComposer.quantity > composerSelectedStock.currentStock) {
+      setLineComposerError(
+        `Quantity exceeds available stock (${composerSelectedStock.currentStock}) for this size.`
+      );
+      return;
+    }
+
+    if (editingLineId) {
+      setLines((current) =>
+        current.map((line) =>
+          line.id === editingLineId
+            ? {
+                ...lineComposer,
+                id: editingLineId,
+                quantity: Math.max(1, Math.trunc(lineComposer.quantity)),
+                unitAmount: Math.max(1, Math.trunc(lineComposer.unitAmount)),
+                discountAmount: Math.max(0, Math.trunc(lineComposer.discountAmount)),
+              }
+            : line
+        )
+      );
+    } else {
+      setLines((current) => [
+        ...current,
+        {
+          ...lineComposer,
+          id: generateId(),
+          quantity: Math.max(1, Math.trunc(lineComposer.quantity)),
+          unitAmount: Math.max(1, Math.trunc(lineComposer.unitAmount)),
+          discountAmount: Math.max(0, Math.trunc(lineComposer.discountAmount)),
+        },
+      ]);
+    }
+    closeLineComposer();
+    setValidationError(null);
   };
 
   const removeLine = (lineId: string) => {
-    setLines((current) => (current.length === 1 ? current : current.filter((line) => line.id !== lineId)));
+    setLines((current) => current.filter((line) => line.id !== lineId));
   };
 
   const buildDraftPayload = (): CreatePurchaseDraftBody | CreateSaleDraftBody | null => {
@@ -998,18 +1061,6 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
               </div>
 
               <div>
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">Line Items</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Product selection follows the Product to Size flow defined in the wireframe.
-                    </p>
-                  </div>
-                  <Button size="sm" variant="outline" onClick={addLine} startIcon={<HiOutlinePlus size={16} />}>
-                    Add Line
-                  </Button>
-                </div>
-
                 <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-gray-800">
                   <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
                     <thead className="bg-gray-50 dark:bg-gray-900/40">
@@ -1024,126 +1075,96 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                      {lines.map((line) => {
+                      {lines.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-8">
+                            <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50/70 p-5 text-center dark:border-gray-700 dark:bg-gray-900/30">
+                              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                No line items added yet.
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                Use the composer button below to add your first line item.
+                              </p>
+                              <div className="pt-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={openLineComposer}
+                                  startIcon={<HiOutlinePlus size={16} />}
+                                >
+                                  Add Line Item
+                                </Button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        lines.map((line) => {
                         const selectedProduct = products.find((product) => product.id === line.productId) ?? null;
-                        const activeVariants = (selectedProduct?.variants ?? []).filter(
-                          (variant) => variant.status === "ACTIVE"
-                        );
-                        const productMatches = products.filter((product) => {
-                          const query = line.productQuery.trim().toLowerCase();
-                          if (!query) return true;
-                          return (
-                            product.name.toLowerCase().includes(query) ||
-                            (product.sku ?? "").toLowerCase().includes(query)
-                          );
-                        });
+                        const selectedVariant = selectedProduct?.variants.find((variant) => variant.id === line.variantId) ?? null;
                         const stockVariants = stockByProductId[line.productId] ?? [];
                         const selectedStock = stockVariants.find((item) => item.variantId === line.variantId);
                         const hasStockWarning = isSale && !!selectedStock && line.quantity > selectedStock.currentStock;
 
                         return (
                           <tr key={line.id} className="align-top">
-                            <td className="px-4 py-4">
-                              <ProductDropdownCell
-                                line={line}
-                                products={productMatches}
-                                productsLoading={productsLoading}
-                                isActive={activeProductPickerId === line.id}
-                                inputClass={inputClass}
-                                onQueryChange={(value) => handleProductQueryChange(line.id, value)}
-                                onFocus={() => setActiveProductPickerId(line.id)}
-                                onSelectProduct={(product) => void handleSelectProduct(line.id, product)}
-                                onBlur={() => setActiveProductPickerId(null)}
-                              />
+                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
+                              {selectedProduct?.name || line.productQuery || "—"}
                             </td>
                             <td className="px-4 py-4">
-                              <div className="min-w-[220px]">
-                                <select
-                                  value={line.variantId}
-                                  onChange={(e) => updateLine(line.id, { variantId: e.target.value })}
-                                  className={inputClass}
-                                  disabled={!selectedProduct}
-                                >
-                                  <option value="">Select size</option>
-                                  {activeVariants.map((variant: ProductVariant) => {
-                                    const stock = stockVariants.find((item) => item.variantId === variant.id);
-                                    return (
-                                      <option key={variant.id} value={variant.id}>
-                                        {variant.size}
-                                        {stock ? ` - ${stock.currentStock} in stock` : ""}
-                                      </option>
-                                    );
-                                  })}
-                                </select>
-                                {!selectedProduct && (
-                                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Pick a product first.</p>
-                                )}
-                                {selectedProduct && stockLoadingByProductId[selectedProduct.id] && (
-                                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Loading stock...</p>
-                                )}
+                              <div className="min-w-[220px] text-sm text-gray-700 dark:text-gray-200">
+                                <p>{selectedVariant?.size || "—"}</p>
                                 {hasStockWarning && (
                                   <p className="mt-1 text-xs text-warning-600 dark:text-warning-400">
-                                    Stock warning: only {selectedStock.currentStock} available for this size.
+                                    Stock warning: only {selectedStock.currentStock} available.
                                   </p>
                                 )}
                               </div>
                             </td>
-                            <td className="px-4 py-4">
-                              <input
-                                type="number"
-                                min={1}
-                                value={line.quantity}
-                                onChange={(e) =>
-                                  updateLine(line.id, {
-                                    quantity: Math.max(1, Number(e.target.value || 1)),
-                                  })
-                                }
-                                className={`${inputClass} min-w-[96px]`}
-                              />
-                            </td>
-                            <td className="px-4 py-4">
-                              <input
-                                type="number"
-                                min={1}
-                                value={line.unitAmount}
-                                onChange={(e) =>
-                                  updateLine(line.id, {
-                                    unitAmount: Math.max(1, Number(e.target.value || 1)),
-                                  })
-                                }
-                                className={`${inputClass} min-w-[120px]`}
-                              />
-                            </td>
-                            <td className="px-4 py-4">
-                              <input
-                                type="number"
-                                min={0}
-                                value={line.discountAmount}
-                                onChange={(e) =>
-                                  updateLine(line.id, {
-                                    discountAmount: Math.max(0, Number(e.target.value || 0)),
-                                  })
-                                }
-                                className={`${inputClass} min-w-[120px]`}
-                              />
-                            </td>
+                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-200">{line.quantity}</td>
+                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-200">{formatPKR(line.unitAmount)}</td>
+                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-200">{formatPKR(line.discountAmount)}</td>
                             <td className="px-4 py-4 text-right text-sm font-semibold text-gray-800 dark:text-white/90">
                               {formatPKR(getLineTotal(line))}
                             </td>
                             <td className="px-4 py-4 text-right">
-                              <button
-                                type="button"
-                                onClick={() => removeLine(line.id)}
-                                disabled={lines.length === 1}
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:border-error-200 hover:bg-error-50 hover:text-error-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:border-error-500/30 dark:hover:bg-error-500/10 dark:hover:text-error-400"
-                                aria-label="Remove line"
-                              >
-                                <HiOutlineTrash size={18} />
-                              </button>
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => openLineComposerForEdit(line.id)}
+                                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-brand-500/30 dark:hover:bg-brand-500/10 dark:hover:text-brand-400"
+                                  aria-label="Edit line"
+                                >
+                                  <HiOutlinePencilSquare size={18} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeLine(line.id)}
+                                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:border-error-200 hover:bg-error-50 hover:text-error-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-error-500/30 dark:hover:bg-error-500/10 dark:hover:text-error-400"
+                                  aria-label="Remove line"
+                                >
+                                  <HiOutlineTrash size={18} />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
-                      })}
+                      })
+                      )}
+                      {lines.length > 0 && (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-3">
+                            <button
+                              type="button"
+                              onClick={openLineComposer}
+                              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50/70 px-4 py-3 text-sm font-medium text-gray-600 transition hover:border-brand-300 hover:bg-brand-50/70 hover:text-brand-700 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-300 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-300"
+                            >
+                              <HiOutlinePlus size={16} />
+                              Add another line item
+                            </button>
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1177,7 +1198,8 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
                     min={0}
                     value={deliveryFee}
                     onChange={(e) => setDeliveryFee(Math.max(0, Number(e.target.value || 0)))}
-                    className={inputClass}
+                    onWheel={blockWheelIncrement}
+                    className={numberInputClass}
                   />
                 </div>
                 <div className={isSale ? "lg:col-span-2" : ""}>
@@ -1273,6 +1295,281 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
           </aside>
         </div>
       </div>
+
+      {lineComposerOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[70] bg-gray-950/45 backdrop-blur-[1px]"
+            onClick={closeLineComposer}
+          />
+          <div className="fixed inset-y-0 right-0 z-[80] w-full max-w-xl border-l border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex h-full flex-col">
+              <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5 dark:border-gray-800">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {editingLineId ? "Edit Line Item" : "Add Line Item"}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Pick product and size first, then fill quantity and {isPurchase ? "unit cost" : "unit price"}.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeLineComposer}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+                  aria-label="Close line composer"
+                >
+                  <HiOutlineXMark size={18} />
+                </button>
+              </div>
+
+              <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
+                <div className="relative">
+                  <FieldLabel htmlFor="composer-product" required>
+                    Product
+                  </FieldLabel>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                      <HiOutlineMagnifyingGlass size={18} />
+                    </span>
+                    <input
+                      id="composer-product"
+                      value={lineComposer.productQuery}
+                      onChange={(e) => {
+                        const query = e.target.value;
+                        setLineComposer((current) => ({
+                          ...current,
+                          productQuery: query,
+                          productId: "",
+                          variantId: "",
+                        }));
+                        setLineComposerProductOpen(true);
+                      }}
+                      onFocus={() => setLineComposerProductOpen(true)}
+                      placeholder={productsLoading ? "Loading products..." : "Search product"}
+                      className={`${inputClass} pl-11 pr-10`}
+                      disabled={productsLoading}
+                    />
+                    {lineComposer.productQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLineComposer((current) => ({
+                            ...current,
+                            productId: "",
+                            productQuery: "",
+                            variantId: "",
+                          }));
+                          setLineComposerProductOpen(false);
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition hover:text-gray-600 dark:hover:text-gray-200"
+                        aria-label="Clear product"
+                      >
+                        <HiOutlineXMark size={18} />
+                      </button>
+                    )}
+                  </div>
+
+                  {lineComposerProductOpen && (
+                    <div className="absolute z-30 mt-2 max-h-64 w-full overflow-auto rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900">
+                      {composerProducts.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No products found.</p>
+                      ) : (
+                        composerProducts.map((product) => (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => void handleComposerSelectProduct(product)}
+                            className="block w-full rounded-xl px-3 py-2 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]"
+                          >
+                            <span className="block text-sm font-medium text-gray-800 dark:text-white/90">
+                              {product.name}
+                            </span>
+                            <span className="block text-xs text-gray-500 dark:text-gray-400">
+                              {product.sku || "No SKU"}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <FieldLabel htmlFor="composer-variant" required>
+                    Size / Variant
+                  </FieldLabel>
+                  <select
+                    id="composer-variant"
+                    value={lineComposer.variantId}
+                    onChange={(e) =>
+                      setLineComposer((current) => ({ ...current, variantId: e.target.value }))
+                    }
+                    className={inputClass}
+                    disabled={!composerSelectedProduct}
+                  >
+                    <option value="">Select size</option>
+                    {composerActiveVariants.map((variant) => {
+                      const stock = composerStockVariants.find((item) => item.variantId === variant.id);
+                      return (
+                        <option key={variant.id} value={variant.id}>
+                          {variant.size}
+                          {stock ? ` - ${stock.currentStock} in stock` : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {!composerSelectedProduct && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Pick a product first.</p>
+                  )}
+                  {composerSelectedProduct && stockLoadingByProductId[composerSelectedProduct.id] && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Loading stock...</p>
+                  )}
+                  {isSale && composerSelectedStock && lineComposer.quantity > composerSelectedStock.currentStock && (
+                    <p className="mt-1 text-xs text-warning-600 dark:text-warning-400">
+                      Stock warning: only {composerSelectedStock.currentStock} available for this size.
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <FieldLabel htmlFor="composer-quantity" required>
+                      Qty
+                    </FieldLabel>
+                    <input
+                      id="composer-quantity"
+                      type="number"
+                      min={0}
+                      value={lineComposer.quantity === 0 ? "" : lineComposer.quantity}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "") {
+                          setLineComposer((current) => ({ ...current, quantity: 0 }));
+                          return;
+                        }
+                        const parsed = Number(raw);
+                        if (Number.isNaN(parsed)) return;
+                        setLineComposer((current) => ({ ...current, quantity: parsed }));
+                      }}
+                      onWheel={blockWheelIncrement}
+                      className={numberInputClass}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel htmlFor="composer-unit" required>
+                      {unitLabel}
+                    </FieldLabel>
+                    <div className="relative">
+                      <input
+                        id="composer-unit"
+                        type="number"
+                        min={0}
+                        value={lineComposer.unitAmount === 0 ? "" : lineComposer.unitAmount}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === "") {
+                            setLineComposer((current) => ({ ...current, unitAmount: 0 }));
+                            return;
+                          }
+                          const parsed = Number(raw);
+                          if (Number.isNaN(parsed)) return;
+                          setLineComposer((current) => ({ ...current, unitAmount: parsed }));
+                        }}
+                        onWheel={blockWheelIncrement}
+                        className={`${numberInputClass} ${isSale ? "pr-11" : ""}`}
+                      />
+                      {isSale && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!composerSelectedProduct) {
+                              showCostHintToast("Select a product first to view cost guidance.");
+                              return;
+                            }
+
+                            if (typeof composerAvgCost !== "number") {
+                              showCostHintToast("Average cost is not available for the selected item yet.");
+                              return;
+                            }
+
+                            const variantText = composerSelectedVariant
+                              ? ` (${composerSelectedVariant.size})`
+                              : "";
+                            showCostHintToast(
+                              `Avg cost for ${composerSelectedProduct.name}${variantText}: ${formatPKR(
+                                composerAvgCost
+                              )}`
+                            );
+                          }}
+                          title="Show average cost hint"
+                          aria-label="Show average cost hint"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition hover:text-brand-500"
+                        >
+                          <HiOutlineBanknotes size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <FieldLabel htmlFor="composer-discount">Discount</FieldLabel>
+                    <input
+                      id="composer-discount"
+                      type="number"
+                      min={0}
+                      value={lineComposer.discountAmount}
+                      onChange={(e) =>
+                        setLineComposer((current) => ({
+                          ...current,
+                          discountAmount: Math.max(0, Number(e.target.value || 0)),
+                        }))
+                      }
+                      onWheel={blockWheelIncrement}
+                      className={numberInputClass}
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-900/50">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Line Total</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                      {formatPKR(getLineTotal(lineComposer))}
+                    </span>
+                  </div>
+                </div>
+
+                {lineComposerError && (
+                  <div className="flex items-start gap-2 rounded-xl border border-warning-100 bg-warning-50 px-4 py-3 text-sm text-warning-700 dark:border-warning-500/20 dark:bg-warning-500/10 dark:text-warning-300">
+                    <HiOutlineExclamationTriangle size={16} className="mt-0.5 shrink-0" />
+                    <span>{lineComposerError}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4 dark:border-gray-800">
+                <Button variant="outline" onClick={closeLineComposer}>
+                  Cancel
+                </Button>
+                <Button onClick={addLineFromComposer} startIcon={<HiOutlinePlus size={16} />}>
+                  {editingLineId ? "Update Line" : "Add Line"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {costHintMessage && (
+        <div className="fixed inset-x-0 bottom-6 z-[100] flex justify-center px-4">
+          <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-theme-lg dark:border-gray-700 dark:bg-gray-900">
+            <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{costHintMessage}</div>
+            <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+              {costHintSecondsLeft}s
+            </span>
+          </div>
+        </div>
+      )}
 
       <TransactionPostModal
         mode={mode}

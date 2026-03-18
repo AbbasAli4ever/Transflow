@@ -248,16 +248,39 @@ function RvsPPanel({
 
 // ─── RecentActivityTable ──────────────────────────────────────────────────────
 
-function RecentActivityTable({ transactions }: { transactions: ApiTransaction[] }) {
+function RecentActivityTable({
+  transactions,
+  onRefresh,
+  isRefreshing,
+}: {
+  transactions: ApiTransaction[];
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-gray-800 dark:text-white">
           Recent Activity
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500">
-          Last 10 transactions
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            Last 10 transactions
+          </p>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            aria-label="Refresh dashboard data"
+            title="Refresh dashboard data"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+          >
+            <HiOutlineArrowPath
+              size={15}
+              className={isRefreshing ? "animate-spin" : ""}
+            />
+          </button>
+        </div>
       </div>
 
       {/* Column headers */}
@@ -292,7 +315,7 @@ function RecentActivityTable({ transactions }: { transactions: ApiTransaction[] 
             return (
               <Link
                 key={tx.id}
-                href="/transactions"
+                href={`/transactions/detail?id=${tx.id}`}
                 className="flex items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 <span className="w-[110px] shrink-0 text-xs text-gray-500 dark:text-gray-400">
@@ -332,21 +355,25 @@ function QuickActionsPanel() {
   const actions = [
     {
       label: "New Sale",
+      href: "/transactions/sale",
       icon: <HiOutlineShoppingCart size={18} />,
       theme: "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300",
     },
     {
       label: "New Purchase",
+      href: "/transactions/purchase",
       icon: <HiOutlineArrowDownTray size={18} />,
       theme: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300",
     },
     {
       label: "Receive Payment",
+      href: "/transactions/customer-payment",
       icon: <HiOutlineCreditCard size={18} />,
       theme: "bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-700 dark:text-yellow-300",
     },
     {
       label: "Pay Supplier",
+      href: "/transactions/supplier-payment",
       icon: <HiOutlineArrowUpTray size={18} />,
       theme: "bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-700 dark:text-red-300",
     },
@@ -361,7 +388,7 @@ function QuickActionsPanel() {
         {actions.map((action) => (
           <Link
             key={action.label}
-            href="/transactions"
+            href={action.href}
             className={`flex h-14 items-center gap-2.5 rounded-xl border px-3.5 text-sm font-medium transition hover:opacity-80 ${action.theme}`}
           >
             {action.icon}
@@ -380,12 +407,16 @@ export default function DashboardPage() {
 
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [asOfDate, setAsOfDate] = useState(today);
 
-  const fetchAll = useCallback(async (date: string) => {
-    setIsLoading(true);
+  const fetchAll = useCallback(async (date: string, silent = false) => {
+    if (silent) {
+      setIsRefreshing(true);
+    } else {
+      setIsInitialLoading(true);
+    }
     setError(null);
     try {
       const [summaryData, txData] = await Promise.all([
@@ -398,49 +429,21 @@ export default function DashboardPage() {
       const apiErr = err as ApiError;
       setError(apiErr.message ?? "Failed to load dashboard data.");
     } finally {
-      setIsLoading(false);
+      if (silent) {
+        setIsRefreshing(false);
+      } else {
+        setIsInitialLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    fetchAll(asOfDate);
+    fetchAll(today);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div className="flex flex-1 flex-col gap-4 bg-[#F8FAFC] p-6 dark:bg-gray-950">
-      {/* ── Top Bar ── */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-[28px] font-bold leading-tight text-gray-900 dark:text-white">
-            Dashboard
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Single-glance business health
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500 dark:text-gray-400">As of date</span>
-          <input
-            type="date"
-            value={asOfDate}
-            onChange={(e) => setAsOfDate(e.target.value)}
-            className="w-[190px] rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          />
-          <button
-            onClick={() => fetchAll(asOfDate)}
-            disabled={isLoading}
-            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
-          >
-            <HiOutlineArrowPath
-              size={16}
-              className={isLoading ? "animate-spin" : ""}
-            />
-            Refresh
-          </button>
-        </div>
-      </div>
-
+    <div className="flex flex-1 flex-col gap-4">
       {/* ── Error Banner ── */}
       {error && (
         <div className="flex items-start gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-400">
@@ -449,7 +452,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {isLoading ? (
+      {isInitialLoading ? (
         <DashboardSkeleton />
       ) : summary ? (
         <>
@@ -494,7 +497,11 @@ export default function DashboardPage() {
 
           {/* ── Row 4: Bottom ── */}
           <div className="flex gap-4">
-            <RecentActivityTable transactions={transactions} />
+            <RecentActivityTable
+              transactions={transactions}
+              onRefresh={() => fetchAll(today, true)}
+              isRefreshing={isRefreshing}
+            />
             <QuickActionsPanel />
           </div>
         </>

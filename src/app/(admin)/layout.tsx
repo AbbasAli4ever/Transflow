@@ -34,7 +34,9 @@ export default function AdminLayout({
           {/* Header */}
           <AppHeader />
           {/* Page Content */}
-          <div className="flex-1 flex flex-col p-4 mx-auto w-full md:p-6">{children}</div>
+          <div className="flex-1 flex flex-col p-4 mx-auto w-full bg-[#F8FAFC] md:p-6 dark:bg-gray-950">
+            {children}
+          </div>
         </div>
       </div>
     </AuthGuard>

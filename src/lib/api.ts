@@ -1,6 +1,8 @@
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api/v1";
 
+const AUTH_EXPIRED_EVENT = "auth:expired";
+
 // ─── Token Storage ────────────────────────────────────────────────────────────
 
 export function getAccessToken(): string | null {
@@ -24,11 +26,24 @@ export function clearTokens() {
   localStorage.removeItem("user");
 }
 
+function notifyAuthExpired(reason: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(AUTH_EXPIRED_EVENT, {
+      detail: { reason },
+    })
+  );
+}
+
 // ─── Internal refresh ────────────────────────────────────────────────────────
 
 async function refreshAccessToken(): Promise<boolean> {
   const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
+  if (!refreshToken) {
+    clearTokens();
+    notifyAuthExpired("missing_refresh_token");
+    return false;
+  }
   try {
     const res = await fetch(`${BASE_URL}/auth/refresh`, {
       method: "POST",
@@ -37,6 +52,7 @@ async function refreshAccessToken(): Promise<boolean> {
     });
     if (!res.ok) {
       clearTokens();
+      notifyAuthExpired("refresh_rejected");
       return false;
     }
     const data = await res.json();
@@ -44,6 +60,7 @@ async function refreshAccessToken(): Promise<boolean> {
     return true;
   } catch {
     clearTokens();
+    notifyAuthExpired("refresh_failed");
     return false;
   }
 }
@@ -69,6 +86,7 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const requestId = crypto.randomUUID();
   const accessToken = getAccessToken();
+  const hadSession = !!accessToken || !!getRefreshToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -91,6 +109,17 @@ export async function apiRequest<T>(
     }
   }
 
+  if (
+    res.status === 401 &&
+    hadSession &&
+    path !== "/auth/login" &&
+    path !== "/auth/register" &&
+    path !== "/auth/refresh"
+  ) {
+    clearTokens();
+    notifyAuthExpired("request_unauthorized");
+  }
+
   if (!res.ok) {
     const error: ApiError = await res
       .json()
@@ -100,3 +129,5 @@ export async function apiRequest<T>(
 
   return res.json() as Promise<T>;
 }
+
+export { AUTH_EXPIRED_EVENT };

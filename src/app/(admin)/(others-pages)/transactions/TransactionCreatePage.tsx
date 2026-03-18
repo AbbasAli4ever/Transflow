@@ -347,6 +347,8 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
   const [lineComposerError, setLineComposerError] = useState<string | null>(null);
   const [lineComposerProductOpen, setLineComposerProductOpen] = useState(false);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const partyDropdownRef = useRef<HTMLDivElement | null>(null);
+  const composerProductDropdownRef = useRef<HTMLDivElement | null>(null);
   const [costHintMessage, setCostHintMessage] = useState<string | null>(null);
   const [costHintSecondsLeft, setCostHintSecondsLeft] = useState(0);
   const costHintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -572,6 +574,29 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      if (partyOpen && partyDropdownRef.current && !partyDropdownRef.current.contains(target)) {
+        setPartyOpen(false);
+      }
+
+      if (
+        lineComposerProductOpen &&
+        composerProductDropdownRef.current &&
+        !composerProductDropdownRef.current.contains(target)
+      ) {
+        setLineComposerProductOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [lineComposerProductOpen, partyOpen]);
 
   const showCostHintToast = (message: string, durationSeconds = 4) => {
     if (costHintTimeoutRef.current) {
@@ -959,7 +984,7 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
 
             <div className="space-y-8 px-6 py-6">
               <div className={`grid gap-5 ${isSale ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
-                <div className="relative">
+                <div className="relative" ref={partyDropdownRef}>
                   <FieldLabel htmlFor="party-search" required>
                     {partyLabel}
                   </FieldLabel>
@@ -1324,7 +1349,7 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
               </div>
 
               <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
-                <div className="relative">
+                <div className="relative" ref={composerProductDropdownRef}>
                   <FieldLabel htmlFor="composer-product" required>
                     Product
                   </FieldLabel>

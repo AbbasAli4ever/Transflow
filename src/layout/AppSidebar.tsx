@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState,useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import { useAuth } from "@/context/AuthContext";
 import { listExpenses } from "@/lib/expenses";
@@ -45,6 +45,7 @@ const BASE_NAV_ITEMS: NavItem[] = [
   {
     icon: <HiOutlineArrowsUpDown size={22} />,
     name: "Transactions",
+    path: "/transactions",
     subItems: [
       { name: "All Transactions", path: "/transactions" },
       { name: "New Purchase", path: "/transactions/purchase" },
@@ -97,6 +98,7 @@ const othersItems: NavItem[] = [];
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const { user } = useAuth();
+  const router = useRouter();
   const pathname = usePathname();
   const canManageExpenses = user?.role === "OWNER" || user?.role === "ADMIN";
   const canManageExpenseCategories = canManageExpenses;
@@ -166,7 +168,7 @@ const AppSidebar: React.FC = () => {
         <li key={nav.name}>
           {nav.subItems ? (
             <button
-              onClick={() => handleSubmenuToggle(index, menuType)}
+              onClick={() => handleMenuButtonClick(nav, index, menuType)}
               className={`menu-item group  ${
                 openSubmenu?.type === menuType && openSubmenu?.index === index
                   ? "menu-item-active"
@@ -355,6 +357,18 @@ const AppSidebar: React.FC = () => {
       }
       return { type: menuType, index };
     });
+  };
+
+  const handleMenuButtonClick = (nav: NavItem, index: number, menuType: "main" | "others") => {
+    if (nav.path === "/transactions") {
+      setOpenSubmenu({ type: menuType, index });
+      if (pathname !== "/transactions") {
+        router.push("/transactions");
+      }
+      return;
+    }
+
+    handleSubmenuToggle(index, menuType);
   };
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -92,6 +92,7 @@ export default function CustomerPaymentPage() {
   const [customerId, setCustomerId] = useState("");
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerOpen, setCustomerOpen] = useState(false);
+  const customerDropdownRef = useRef<HTMLDivElement | null>(null);
   const [customerBalance, setCustomerBalance] = useState<number | null>(null);
   const [customerBalanceLoading, setCustomerBalanceLoading] = useState(false);
 
@@ -137,6 +138,20 @@ export default function CustomerPaymentPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (customerOpen && customerDropdownRef.current && !customerDropdownRef.current.contains(target)) {
+        setCustomerOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [customerOpen]);
 
   useEffect(() => {
     if (!customerId) {
@@ -349,7 +364,7 @@ export default function CustomerPaymentPage() {
 
           <div className="space-y-8 px-6 py-6">
             <div className="grid gap-5 lg:grid-cols-2">
-              <div className="relative">
+              <div className="relative" ref={customerDropdownRef}>
                 <FieldLabel htmlFor="customer-search" required>
                   Customer
                 </FieldLabel>

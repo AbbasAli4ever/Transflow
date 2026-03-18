@@ -5,12 +5,18 @@ import UserDropdown from "@/components/header/UserDropdown";
 import { useSidebar } from "@/context/SidebarContext";
 import Image from "next/image";
 import Link from "next/link";
-import React, { useState ,useEffect,useRef} from "react";
+import { usePathname, useRouter } from "next/navigation";
+import React, { useEffect, useRef, useState } from "react";
+import { HiOutlineArrowLeft } from "react-icons/hi2";
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+  const pathSegments = pathname.split("/").filter(Boolean);
+  const shouldShowBackButton = pathSegments.length >= 2;
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -23,6 +29,17 @@ const AppHeader: React.FC = () => {
   const toggleApplicationMenu = () => {
     setApplicationMenuOpen(!isApplicationMenuOpen);
   };
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    const parentPath = `/${pathSegments.slice(0, -1).join("/")}`;
+    router.push(parentPath === "/" ? "/" : parentPath);
+  };
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -82,6 +99,17 @@ const AppHeader: React.FC = () => {
             )}
             {/* Cross Icon */}
           </button>
+
+          {shouldShowBackButton && (
+            <button
+              type="button"
+              onClick={handleBack}
+              className="hidden items-center justify-center w-10 h-10 text-gray-500 border border-gray-200 rounded-lg transition hover:bg-gray-50 hover:text-gray-700 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200 lg:flex lg:h-11 lg:w-11"
+              aria-label="Go Back"
+            >
+              <HiOutlineArrowLeft size={18} />
+            </button>
+          )}
 
           <Link href="/" className="lg:hidden">
             <Image

@@ -1,10 +1,8 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  HiOutlineArrowLeft,
   HiOutlineArrowsUpDown,
   HiOutlineCheckCircle,
   HiOutlineExclamationTriangle,
@@ -127,6 +125,7 @@ export default function StockAdjustmentPage() {
   const [lineComposerError, setLineComposerError] = useState<string | null>(null);
   const [lineComposerProductOpen, setLineComposerProductOpen] = useState(false);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const composerProductDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const [transactionDate, setTransactionDate] = useState(getCurrentDateSafe());
   const [notes, setNotes] = useState("");
@@ -175,6 +174,24 @@ export default function StockAdjustmentPage() {
       document.body.style.overflow = previousOverflow;
     };
   }, [lineComposerOpen]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        lineComposerProductOpen &&
+        composerProductDropdownRef.current &&
+        !composerProductDropdownRef.current.contains(target)
+      ) {
+        setLineComposerProductOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [lineComposerProductOpen]);
 
   const ensureProductStock = async (productId: string) => {
     if (!productId || stockByProductId[productId] || stockLoadingByProductId[productId]) {
@@ -439,19 +456,13 @@ export default function StockAdjustmentPage() {
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-3">
-          <Link href="/transactions" className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-gray-700 dark:text-gray-400 dark:hover:text-white">
-            <HiOutlineArrowLeft size={16} />
-            Back to Transactions
-          </Link>
-          <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-500 dark:bg-brand-500/10">
-              <HiOutlineArrowsUpDown size={28} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create Stock Adjustment</h1>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Correct inventory levels by posting inbound or outbound stock adjustments.</p>
-            </div>
+        <div className="flex items-start gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-500 dark:bg-brand-500/10">
+            <HiOutlineArrowsUpDown size={28} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create Stock Adjustment</h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Correct inventory levels by posting inbound or outbound stock adjustments.</p>
           </div>
         </div>
       </div>
@@ -715,7 +726,7 @@ export default function StockAdjustmentPage() {
               </div>
 
               <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
-                <div className="relative">
+                <div className="relative" ref={composerProductDropdownRef}>
                   <FieldLabel htmlFor="composer-product" required>
                     Product
                   </FieldLabel>

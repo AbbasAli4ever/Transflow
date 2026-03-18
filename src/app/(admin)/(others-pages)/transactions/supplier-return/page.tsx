@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -105,9 +105,24 @@ export default function SupplierReturnPage() {
   const [supplierId, setSupplierId] = useState("");
   const [supplierQuery, setSupplierQuery] = useState("");
   const [supplierOpen, setSupplierOpen] = useState(false);
+  const supplierDropdownRef = useRef<HTMLDivElement | null>(null);
   const [purchaseId, setPurchaseId] = useState("");
   const [transactionDate, setTransactionDate] = useState(toLocalDate(new Date()));
   const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (supplierOpen && supplierDropdownRef.current && !supplierDropdownRef.current.contains(target)) {
+        setSupplierOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [supplierOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -440,7 +455,7 @@ export default function SupplierReturnPage() {
           {step === "select" ? (
             <div className="space-y-8 px-6 py-6">
               <div className="grid gap-5 lg:grid-cols-2">
-                <div className="relative">
+                <div className="relative" ref={supplierDropdownRef}>
                   <FieldLabel htmlFor="supplier-search" required>
                     Supplier
                   </FieldLabel>

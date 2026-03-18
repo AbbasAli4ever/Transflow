@@ -69,20 +69,28 @@ function DashboardSkeleton() {
   return (
     <div className="animate-pulse space-y-4">
       {/* Stats row */}
-      <div className="grid grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:grid-cols-5">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-[150px] rounded-xl bg-gray-200 dark:bg-gray-700" />
+          <div
+            key={i}
+            className="rounded-xl border border-gray-200 bg-white p-3.5 dark:border-gray-700 dark:bg-gray-900"
+          >
+            <div className="h-1 w-10 rounded-full bg-gray-200 dark:bg-gray-700" />
+            <div className="mt-2 h-3 w-24 rounded bg-gray-200 dark:bg-gray-700" />
+            <div className="mt-2 h-6 w-32 rounded bg-gray-200 dark:bg-gray-700" />
+            <div className="mt-2 h-3 w-28 rounded bg-gray-200 dark:bg-gray-700" />
+          </div>
         ))}
       </div>
       {/* Middle row */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="h-[260px] rounded-xl bg-gray-200 dark:bg-gray-700" />
-        <div className="h-[260px] rounded-xl bg-gray-200 dark:bg-gray-700" />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="h-56 rounded-xl bg-gray-200 dark:bg-gray-700 md:h-[260px]" />
+        <div className="h-56 rounded-xl bg-gray-200 dark:bg-gray-700 md:h-[260px]" />
       </div>
       {/* Bottom row */}
-      <div className="flex gap-4">
+      <div className="flex flex-col gap-4 md:flex-row">
         <div className="h-64 flex-1 rounded-xl bg-gray-200 dark:bg-gray-700" />
-        <div className="h-64 w-80 rounded-xl bg-gray-200 dark:bg-gray-700" />
+        <div className="h-64 w-full rounded-xl bg-gray-200 dark:bg-gray-700 md:w-80" />
       </div>
     </div>
   );
@@ -132,7 +140,7 @@ function CashByAccountPanel({
   accounts: DashboardSummary["cash"]["accounts"];
 }) {
   return (
-    <div className="flex h-[260px] flex-col gap-3 overflow-hidden rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+    <div className="flex flex-col gap-3 overflow-hidden rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 md:h-[260px]">
       <p className="shrink-0 text-sm font-semibold text-gray-800 dark:text-white">
         Cash by Account
       </p>
@@ -194,7 +202,7 @@ function RvsPPanel({
       : "Receivables and payables are equal";
 
   return (
-    <div className="flex h-[260px] flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+    <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 md:h-[260px]">
       <p className="text-sm font-semibold text-gray-800 dark:text-white">
         Receivables vs Payables
       </p>
@@ -259,7 +267,7 @@ function RecentActivityTable({
 }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold text-gray-800 dark:text-white">
           Recent Activity
         </p>
@@ -283,68 +291,72 @@ function RecentActivityTable({
         </div>
       </div>
 
-      {/* Column headers */}
-      <div className="flex h-[30px] items-center gap-2 rounded-lg bg-slate-50 px-3 dark:bg-gray-800">
-        <span className="w-[110px] shrink-0 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          Date
-        </span>
-        <span className="w-[110px] shrink-0 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          Type
-        </span>
-        <span className="flex-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          Party
-        </span>
-        <span className="w-[120px] shrink-0 text-right text-xs font-semibold text-slate-500 dark:text-slate-400">
-          Amount
-        </span>
-        <span className="w-[120px] shrink-0 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          Status
-        </span>
-      </div>
+      <div className="overflow-x-auto">
+        <div className="min-w-[590px]">
+          {/* Column headers */}
+          <div className="flex h-[30px] items-center gap-2 rounded-lg bg-slate-50 px-3 dark:bg-gray-800">
+            <span className="w-[110px] shrink-0 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Date
+            </span>
+            <span className="w-[110px] shrink-0 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Type
+            </span>
+            <span className="flex-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Party
+            </span>
+            <span className="w-[120px] shrink-0 text-right text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Amount
+            </span>
+            <span className="w-[120px] shrink-0 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Status
+            </span>
+          </div>
 
-      {/* Rows */}
-      {transactions.length === 0 ? (
-        <p className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">
-          No transactions found.
-        </p>
-      ) : (
-        <div className="space-y-0">
-          {transactions.map((tx) => {
-            const partyName =
-              tx.supplier?.name ?? tx.customer?.name ?? "—";
-            return (
-              <Link
-                key={tx.id}
-                href={`/transactions/detail?id=${tx.id}`}
-                className="flex items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                <span className="w-[110px] shrink-0 text-xs text-gray-500 dark:text-gray-400">
-                  {fmtDate(tx.transactionDate)}
-                </span>
-                <span
-                  className={`w-[110px] shrink-0 text-xs ${TX_TYPE_COLORS[tx.type]}`}
-                >
-                  {TX_TYPE_LABEL[tx.type]}
-                </span>
-                <span className="flex-1 truncate text-xs text-gray-700 dark:text-gray-300">
-                  {partyName}
-                </span>
-                <span className="w-[120px] shrink-0 text-right text-xs font-medium text-gray-900 dark:text-white">
-                  {formatPKR(tx.totalAmount)}
-                </span>
-                <div className="flex w-[120px] shrink-0 items-center gap-1.5">
-                  <span
-                    className={`inline-flex h-5 items-center rounded-full px-2 text-[11px] ${TX_STATUS_COLORS[tx.status]}`}
+          {/* Rows */}
+          {transactions.length === 0 ? (
+            <p className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+              No transactions found.
+            </p>
+          ) : (
+            <div className="space-y-0">
+              {transactions.map((tx) => {
+                const partyName =
+                  tx.supplier?.name ?? tx.customer?.name ?? "—";
+                return (
+                  <Link
+                    key={tx.id}
+                    href={`/transactions/detail?id=${tx.id}`}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-gray-50 dark:hover:bg-gray-800"
                   >
-                    {tx.status.charAt(0) + tx.status.slice(1).toLowerCase()}
-                  </span>
-                  <HiOutlineChevronRight size={14} className="text-slate-400" />
-                </div>
-              </Link>
-            );
-          })}
+                    <span className="w-[110px] shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                      {fmtDate(tx.transactionDate)}
+                    </span>
+                    <span
+                      className={`w-[110px] shrink-0 text-xs ${TX_TYPE_COLORS[tx.type]}`}
+                    >
+                      {TX_TYPE_LABEL[tx.type]}
+                    </span>
+                    <span className="flex-1 truncate text-xs text-gray-700 dark:text-gray-300">
+                      {partyName}
+                    </span>
+                    <span className="w-[120px] shrink-0 text-right text-xs font-medium text-gray-900 dark:text-white">
+                      {formatPKR(tx.totalAmount)}
+                    </span>
+                    <div className="flex w-[120px] shrink-0 items-center gap-1.5">
+                      <span
+                        className={`inline-flex h-5 items-center rounded-full px-2 text-[11px] ${TX_STATUS_COLORS[tx.status]}`}
+                      >
+                        {tx.status.charAt(0) + tx.status.slice(1).toLowerCase()}
+                      </span>
+                      <HiOutlineChevronRight size={14} className="text-slate-400" />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -380,7 +392,7 @@ function QuickActionsPanel() {
   ];
 
   return (
-    <div className="flex w-80 shrink-0 flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+    <div className="flex w-full shrink-0 flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 md:w-80">
       <p className="text-sm font-semibold text-gray-800 dark:text-white">
         Quick Actions
       </p>
@@ -457,7 +469,7 @@ export default function DashboardPage() {
       ) : summary ? (
         <>
           {/* ── Row 2: Stats ── */}
-          <div className="grid grid-cols-5 gap-3.5">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:grid-cols-5">
             <StatCard
               label="Total Cash"
               value={formatPKR(summary.cash.totalBalance)}
@@ -487,7 +499,7 @@ export default function DashboardPage() {
           </div>
 
           {/* ── Row 3: Middle ── */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <CashByAccountPanel accounts={summary.cash.accounts} />
             <RvsPPanel
               receivables={summary.receivables}
@@ -496,7 +508,7 @@ export default function DashboardPage() {
           </div>
 
           {/* ── Row 4: Bottom ── */}
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-4 md:flex-row">
             <RecentActivityTable
               transactions={transactions}
               onRefresh={() => fetchAll(today, true)}

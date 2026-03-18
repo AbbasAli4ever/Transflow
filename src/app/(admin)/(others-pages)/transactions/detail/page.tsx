@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  HiOutlineArrowLeft,
   HiOutlineArrowsUpDown,
   HiOutlineExclamationTriangle,
   HiOutlinePencilSquare,
@@ -104,8 +103,8 @@ function PageSkeleton() {
   return (
     <div className="mx-auto w-full max-w-full animate-pulse">
       <div className="mb-5 h-5 w-44 rounded bg-gray-200 dark:bg-gray-700" />
-      <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
-        <div className="mb-4 flex items-start justify-between">
+      <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-6">
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
             <div className="h-7 w-48 rounded bg-gray-200 dark:bg-gray-700" />
             <div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700" />
@@ -117,7 +116,7 @@ function PageSkeleton() {
         </div>
         <div className="h-4 w-40 rounded bg-gray-200 dark:bg-gray-700" />
       </div>
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-6">
         <div className="h-40 w-full rounded bg-gray-200 dark:bg-gray-700" />
       </div>
     </div>
@@ -458,11 +457,6 @@ export default function TransactionDetailPage() {
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
         <HiOutlineArrowsUpDown size={48} className="text-gray-300" />
         <p className="text-lg font-medium text-gray-500">Transaction not found.</p>
-        <Link href="/transactions">
-          <Button variant="outline" size="sm" startIcon={<HiOutlineArrowLeft size={15} />}>
-            Back to Transactions
-          </Button>
-        </Link>
       </div>
     );
   }
@@ -474,11 +468,6 @@ export default function TransactionDetailPage() {
           <HiOutlineExclamationTriangle size={16} className="mt-0.5 shrink-0" />
           {error}
         </div>
-        <Link href="/transactions">
-          <Button variant="outline" size="sm" startIcon={<HiOutlineArrowLeft size={15} />}>
-            Back to Transactions
-          </Button>
-        </Link>
       </div>
     );
   }
@@ -498,17 +487,7 @@ export default function TransactionDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-full">
-      <div className="mb-5">
-        <Link
-          href="/transactions"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-brand-500 dark:text-gray-400"
-        >
-          <HiOutlineArrowLeft size={15} />
-          Back to Transactions
-        </Link>
-      </div>
-
-      <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+      <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-6">
         {successMessage && (
           <div className="mb-4 flex items-start gap-2 rounded-xl bg-success-50 px-4 py-3 text-sm text-success-700 dark:bg-success-500/10 dark:text-success-400">
             <HiOutlineCheckCircle size={16} className="mt-0.5 shrink-0" />
@@ -642,7 +621,7 @@ export default function TransactionDetailPage() {
         </div>
       </div>
 
-      <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+      <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">Transaction Lines</h2>
         </div>
@@ -735,7 +714,7 @@ export default function TransactionDetailPage() {
       </div>
 
       {showPaymentInfo && (
-        <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+        <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-6">
           <h2 className="mb-3 text-base font-semibold text-gray-900 dark:text-white">Payment Info</h2>
           {transaction.paymentEntries && transaction.paymentEntries.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2">
@@ -759,7 +738,7 @@ export default function TransactionDetailPage() {
       )}
 
       {showAllocations && (
-        <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+        <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-6">
           <h2 className="mb-3 text-base font-semibold text-gray-900 dark:text-white">Allocations</h2>
           {allocations.length === 0 ? (
             <p className="text-sm text-gray-500">No allocations found.</p>
@@ -830,7 +809,7 @@ export default function TransactionDetailPage() {
       {voidOpen && (
         <Modal isOpen onClose={() => setVoidOpen(false)} className="max-w-lg mx-4" showCloseButton={false}>
           <div className="p-6">
-            <div className="mb-4 flex items-start justify-between">
+            <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Void Transaction
@@ -882,7 +861,7 @@ export default function TransactionDetailPage() {
       {editOpen && editForm && (
         <Modal isOpen onClose={() => setEditOpen(false)} className="max-w-3xl mx-4" showCloseButton={false}>
           <div className="p-6">
-            <div className="mb-4 flex items-start justify-between">
+            <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Edit Draft</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">

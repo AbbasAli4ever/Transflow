@@ -3,10 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.css";
-import Link from "next/link";
 import {
   HiOutlineUserGroup,
-  HiOutlineArrowLeft,
   HiOutlinePencilSquare,
   HiOutlineArrowsUpDown,
   HiOutlinePhone,
@@ -936,11 +934,6 @@ export default function CustomerDetailClient({ id }: { id: string }) {
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
         <HiOutlineUserGroup size={48} className="text-gray-300" />
         <p className="text-lg font-medium text-gray-500">Customer not found.</p>
-        <Link href="/customer">
-          <Button variant="outline" size="sm" startIcon={<HiOutlineArrowLeft size={15} />}>
-            Back to Customers
-          </Button>
-        </Link>
       </div>
     );
   }
@@ -952,11 +945,6 @@ export default function CustomerDetailClient({ id }: { id: string }) {
           <HiOutlineExclamationTriangle size={16} className="mt-0.5 shrink-0" />
           {error}
         </div>
-        <Link href="/customer">
-          <Button variant="outline" size="sm" startIcon={<HiOutlineArrowLeft size={15} />}>
-            Back to Customers
-          </Button>
-        </Link>
       </div>
     );
   }
@@ -983,17 +971,6 @@ export default function CustomerDetailClient({ id }: { id: string }) {
 
   return (
     <div className="mx-auto w-full max-w-full">
-      {/* Back nav */}
-      <div className="mb-5">
-        <Link
-          href="/customer"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-brand-500 dark:text-gray-400"
-        >
-          <HiOutlineArrowLeft size={15} />
-          Back to Customers
-        </Link>
-      </div>
-
       {/* ── Header card ── */}
       <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

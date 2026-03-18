@@ -434,27 +434,34 @@ export default function TransactionsPage() {
 
         {filtersOpen && (
           <div className="border-t border-gray-100 px-5 py-4 dark:border-gray-800">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <div className="flex flex-1 flex-col gap-3 sm:flex-row">
-                <div className="flex items-center gap-2">
-                  <label className="text-xs font-medium text-gray-500">Date range</label>
-                  <div className="relative inline-flex items-center">
-                    <CalenderIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none z-10" />
+            <div className="grid gap-4 xl:grid-cols-12">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:col-span-9">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Date Range
+                  </label>
+                  <div className="relative inline-flex w-full items-center">
+                    <CalenderIcon className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
                     <input
                       ref={datePickerRef}
-                      className="h-10 w-60 pl-9 pr-0 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 cursor-pointer"
+                      className="h-10 w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm font-medium text-gray-700 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 cursor-pointer"
                       placeholder="Select date range"
                       readOnly
                     />
                   </div>
                 </div>
-              </div>
 
-              <div className="flex flex-1 flex-col gap-3 sm:flex-row">
                 <div className="relative">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Type
+                  </label>
                   <button
-                    onClick={() => setTypeDropOpen((v) => !v)}
-                    className="flex h-10 w-full min-w-[180px] items-center justify-between rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    onClick={() => {
+                      setTypeDropOpen((v) => !v);
+                      setStatusDropOpen(false);
+                      setSortDropOpen(false);
+                    }}
+                    className="flex h-10 w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                   >
                     {TYPE_OPTIONS.find((o) => o.value === typeFilter)?.label ?? "All Types"}
                     <HiOutlineChevronDown size={14} className="text-gray-400" />
@@ -471,6 +478,8 @@ export default function TransactionsPage() {
                           setTypeFilter(opt.value);
                           setPage(1);
                           setTypeDropOpen(false);
+                          setStatusDropOpen(false);
+                          setSortDropOpen(false);
                         }}
                       >
                         {opt.label}
@@ -480,9 +489,16 @@ export default function TransactionsPage() {
                 </div>
 
                 <div className="relative">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Status
+                  </label>
                   <button
-                    onClick={() => setStatusDropOpen((v) => !v)}
-                    className="flex h-10 w-full min-w-[160px] items-center justify-between rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    onClick={() => {
+                      setStatusDropOpen((v) => !v);
+                      setTypeDropOpen(false);
+                      setSortDropOpen(false);
+                    }}
+                    className="flex h-10 w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                   >
                     {STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label ?? "All Status"}
                     <HiOutlineChevronDown size={14} className="text-gray-400" />
@@ -499,6 +515,8 @@ export default function TransactionsPage() {
                           setStatusFilter(opt.value);
                           setPage(1);
                           setStatusDropOpen(false);
+                          setTypeDropOpen(false);
+                          setSortDropOpen(false);
                         }}
                       >
                         {opt.label}
@@ -506,104 +524,116 @@ export default function TransactionsPage() {
                     ))}
                   </Dropdown>
                 </div>
-              </div>
 
-              <div className="relative flex-[1.5]">
-                <HiOutlineMagnifyingGlass
-                  size={16}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  type="text"
-                  placeholder="Search supplier or customer"
-                  value={partyQuery}
-                  onChange={(e) => {
-                    setPartyQuery(e.target.value);
-                    setSelectedParty(null);
-                  }}
-                  onFocus={() => {
-                    if (partyQuery.trim().length >= 2) setPartyOpen(true);
-                  }}
-                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-10 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
-                />
-                {partyQuery && (
-                  <button
-                    onClick={() => {
-                      setPartyQuery("");
+                <div className="relative sm:col-span-2 lg:col-span-3">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Search Party
+                  </label>
+                  <HiOutlineMagnifyingGlass
+                    size={16}
+                    className="pointer-events-none absolute left-3 top-[calc(50%+12px)] -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search supplier or customer"
+                    value={partyQuery}
+                    onChange={(e) => {
+                      setPartyQuery(e.target.value);
                       setSelectedParty(null);
-                      setPartyOpen(false);
-                      setPage(1);
                     }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <HiOutlineXMark size={16} />
-                  </button>
-                )}
+                    onFocus={() => {
+                      if (partyQuery.trim().length >= 2) setPartyOpen(true);
+                    }}
+                    className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-10 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
+                  />
+                  {partyQuery && (
+                    <button
+                      onClick={() => {
+                        setPartyQuery("");
+                        setSelectedParty(null);
+                        setPartyOpen(false);
+                        setPage(1);
+                      }}
+                      className="absolute right-3 top-[calc(50%+12px)] -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <HiOutlineXMark size={16} />
+                    </button>
+                  )}
 
-                <Dropdown
-                  isOpen={partyOpen}
-                  onClose={() => setPartyOpen(false)}
-                  className="left-0 right-auto w-full mt-1 p-1"
-                >
-                  {partyLoading ? (
-                    <div className="px-4 py-2 text-sm text-gray-500">Searching...</div>
-                  ) : (
-                    <div className="max-h-64 overflow-y-auto">
-                      {partyResults.suppliers.length === 0 &&
-                        partyResults.customers.length === 0 && (
-                          <div className="px-4 py-2 text-sm text-gray-500">
-                            No matches found.
+                  <Dropdown
+                    isOpen={partyOpen}
+                    onClose={() => setPartyOpen(false)}
+                    className="left-0 right-auto mt-1 w-full p-1"
+                  >
+                    {partyLoading ? (
+                      <div className="px-4 py-2 text-sm text-gray-500">Searching...</div>
+                    ) : (
+                      <div className="max-h-64 overflow-y-auto">
+                        {partyResults.suppliers.length === 0 &&
+                          partyResults.customers.length === 0 && (
+                            <div className="px-4 py-2 text-sm text-gray-500">
+                              No matches found.
+                            </div>
+                          )}
+
+                        {partyResults.suppliers.length > 0 && (
+                          <div className="py-1">
+                            <div className="px-4 py-1.5 text-xs font-semibold uppercase text-gray-400">
+                              Suppliers
+                            </div>
+                            {partyResults.suppliers.map((s) => (
+                              <DropdownItem
+                                key={s.id}
+                                onClick={() =>
+                                  handlePartySelect({ type: "supplier", id: s.id, name: s.name })
+                                }
+                              >
+                                {s.name}
+                              </DropdownItem>
+                            ))}
                           </div>
                         )}
 
-                      {partyResults.suppliers.length > 0 && (
-                        <div className="py-1">
-                          <div className="px-4 py-1.5 text-xs font-semibold uppercase text-gray-400">
-                            Suppliers
+                        {partyResults.customers.length > 0 && (
+                          <div className="py-1">
+                            <div className="px-4 py-1.5 text-xs font-semibold uppercase text-gray-400">
+                              Customers
+                            </div>
+                            {partyResults.customers.map((c) => (
+                              <DropdownItem
+                                key={c.id}
+                                onClick={() =>
+                                  handlePartySelect({ type: "customer", id: c.id, name: c.name })
+                                }
+                              >
+                                {c.name}
+                              </DropdownItem>
+                            ))}
                           </div>
-                          {partyResults.suppliers.map((s) => (
-                            <DropdownItem
-                              key={s.id}
-                              onClick={() =>
-                                handlePartySelect({ type: "supplier", id: s.id, name: s.name })
-                              }
-                            >
-                              {s.name}
-                            </DropdownItem>
-                          ))}
-                        </div>
-                      )}
-
-                      {partyResults.customers.length > 0 && (
-                        <div className="py-1">
-                          <div className="px-4 py-1.5 text-xs font-semibold uppercase text-gray-400">
-                            Customers
-                          </div>
-                          {partyResults.customers.map((c) => (
-                            <DropdownItem
-                              key={c.id}
-                              onClick={() =>
-                                handlePartySelect({ type: "customer", id: c.id, name: c.name })
-                              }
-                            >
-                              {c.name}
-                            </DropdownItem>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </Dropdown>
+                        )}
+                      </div>
+                    )}
+                  </Dropdown>
+                </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="grid gap-3 sm:grid-cols-2 xl:col-span-3 xl:grid-cols-1">
                 <div className="relative">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Sort By
+                  </label>
                   <button
-                    onClick={() => setSortDropOpen((v) => !v)}
-                    className="flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    onClick={() => {
+                      setSortDropOpen((v) => !v);
+                      setTypeDropOpen(false);
+                      setStatusDropOpen(false);
+                    }}
+                    className="flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                   >
-                    <HiOutlineArrowsUpDown size={14} className="text-gray-400" />
-                    Sort: {SORT_OPTIONS.find((o) => o.value === sortBy)?.label}
+                    <span className="flex min-w-0 items-center gap-2">
+                      <HiOutlineArrowsUpDown size={14} className="text-gray-400" />
+                      <span className="truncate">{SORT_OPTIONS.find((o) => o.value === sortBy)?.label}</span>
+                    </span>
                     <HiOutlineChevronDown size={14} className="text-gray-400" />
                   </button>
                   <Dropdown isOpen={sortDropOpen} onClose={() => setSortDropOpen(false)}>
@@ -614,6 +644,8 @@ export default function TransactionsPage() {
                           setSortBy(opt.value);
                           setPage(1);
                           setSortDropOpen(false);
+                          setTypeDropOpen(false);
+                          setStatusDropOpen(false);
                         }}
                       >
                         {opt.label}
@@ -621,23 +653,26 @@ export default function TransactionsPage() {
                     ))}
                   </Dropdown>
                 </div>
-                <button
-                  onClick={() => {
-                    setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
-                    setPage(1);
-                  }}
-                  className="flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                >
-                  {sortOrder === "asc" ? (
-                    <HiOutlineArrowUp size={14} className="text-gray-400" />
-                  ) : (
-                    <HiOutlineArrowDown size={14} className="text-gray-400" />
-                  )}
-                  {sortOrder === "asc" ? "Asc" : "Desc"}
-                </button>
-                <Button variant="outline" size="sm" onClick={handleReset} className="h-10 px-4">
-                  Reset filters
-                </Button>
+
+                <div className="grid grid-cols-2 gap-2 sm:items-end xl:grid-cols-2">
+                  <button
+                    onClick={() => {
+                      setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
+                      setPage(1);
+                    }}
+                    className="flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    {sortOrder === "asc" ? (
+                      <HiOutlineArrowUp size={14} className="text-gray-400" />
+                    ) : (
+                      <HiOutlineArrowDown size={14} className="text-gray-400" />
+                    )}
+                    {sortOrder === "asc" ? "Asc" : "Desc"}
+                  </button>
+                  <Button variant="outline" size="sm" onClick={handleReset} className="h-10 w-full px-4">
+                    Reset
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -653,8 +688,8 @@ export default function TransactionsPage() {
       )}
 
       {/* Table */}
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 overflow-visible">
+        <div className="overflow-x-auto rounded-t-2xl">
           <table className="w-full min-w-[900px] whitespace-nowrap">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50">
@@ -780,7 +815,7 @@ export default function TransactionsPage() {
               <Dropdown
                 isOpen={sizeDropOpen}
                 onClose={() => setSizeDropOpen(false)}
-                className="left-0 right-auto w-36"
+                className="left-0 right-auto bottom-full mb-2 mt-0 w-36"
               >
                 {PAGE_SIZES.map((size) => (
                   <DropdownItem

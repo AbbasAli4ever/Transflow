@@ -206,9 +206,9 @@ export default function CashPositionPage() {
                       </td>
                     </tr>
                   ) : (
-                    sortedAccounts.map((account) => (
+                    sortedAccounts.map((account, index) => (
                       <tr
-                        key={account.accountId}
+                        key={`${account.accountId ?? account.accountName ?? "account"}-${index}`}
                         className="border-b border-gray-100 last:border-b-0 dark:border-gray-800"
                       >
                         <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">

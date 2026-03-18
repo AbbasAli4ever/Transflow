@@ -46,6 +46,13 @@ export const Dropdown: React.FC<DropdownProps> = ({
   return (
     <div
       ref={dropdownRef}
+      onClick={(event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest('[data-dropdown-item="true"]')) {
+          // Defer close so the item's own onClick handler can update state first.
+          window.setTimeout(onClose, 0);
+        }
+      }}
       className={`absolute z-40  right-0 mt-2  rounded-xl border border-gray-200 bg-white  shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark ${className}`}
     >
       {children}

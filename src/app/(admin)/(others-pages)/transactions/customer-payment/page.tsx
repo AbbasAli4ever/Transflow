@@ -1,11 +1,8 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  HiOutlineArrowLeft,
-  HiOutlineArrowsUpDown,
   HiOutlineBanknotes,
   HiOutlineExclamationTriangle,
   HiOutlineMagnifyingGlass,
@@ -316,29 +313,6 @@ export default function CustomerPaymentPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-3">
-          <Link
-            href="/transactions"
-            className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
-          >
-            <HiOutlineArrowLeft size={16} />
-            Back to Transactions
-          </Link>
-          <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-500 dark:bg-brand-500/10">
-              <HiOutlineArrowsUpDown size={28} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create Customer Receipt</h1>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Record a payment received from a customer and optionally allocate it across open sales.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {pageError && (
         <div className="flex items-start gap-3 rounded-2xl border border-error-100 bg-error-50 px-4 py-3 text-sm text-error-700 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-400">
           <HiOutlineExclamationTriangle size={18} className="mt-0.5 shrink-0" />
@@ -355,14 +329,14 @@ export default function CustomerPaymentPage() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className={`${panelClass} overflow-visible`}>
-          <div className="border-b border-gray-200 px-6 py-5 dark:border-gray-800">
+          <div className="border-b border-gray-200 px-4 py-4 dark:border-gray-800 sm:px-6 sm:py-5">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Receipt Details</h2>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Choose the customer, amount, payment account, and how this receipt should be allocated.
             </p>
           </div>
 
-          <div className="space-y-8 px-6 py-6">
+          <div className="space-y-6 px-4 py-5 sm:space-y-8 sm:px-6 sm:py-6">
             <div className="grid gap-5 lg:grid-cols-2">
               <div className="relative" ref={customerDropdownRef}>
                 <FieldLabel htmlFor="customer-search" required>
@@ -374,6 +348,11 @@ export default function CustomerPaymentPage() {
                   </span>
                   <input
                     id="customer-search"
+                      name="customer-search"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
                     value={customerQuery}
                     onChange={(e) => {
                       setCustomerQuery(e.target.value);
@@ -517,7 +496,7 @@ export default function CustomerPaymentPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">No open sales invoices found for this customer.</p>
               ) : (
                 <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-gray-800">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+                  <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-800">
                     <thead className="bg-gray-50 dark:bg-gray-900/40">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Document #</th>
@@ -570,7 +549,7 @@ export default function CustomerPaymentPage() {
               )}
             </div>
 
-            <div className="flex justify-end border-t border-gray-200 pt-6 dark:border-gray-800">
+            <div className="flex flex-col gap-3 border-t border-gray-200 pt-6 dark:border-gray-800 sm:flex-row sm:justify-end">
               <Button onClick={() => void submit()} disabled={submitting} startIcon={<HiOutlineCheckCircle size={18} />}>
                 {submitting ? "Posting..." : "Save & Post"}
               </Button>
@@ -579,7 +558,7 @@ export default function CustomerPaymentPage() {
         </section>
 
         <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
-          <section className={`${panelClass} p-6`}>
+          <section className={`${panelClass} p-4 sm:p-6`}>
             <div className="mb-5 flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-success-50 text-success-600 dark:bg-success-500/10 dark:text-success-400">
                 <HiOutlineBanknotes size={22} />

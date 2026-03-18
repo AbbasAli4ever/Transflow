@@ -16,7 +16,7 @@ export const DropdownItem: React.FC<DropdownItemProps> = ({
   href,
   onClick,
   onItemClick,
-  baseClassName = "block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900",
+  baseClassName = "block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:text-white",
   className = "",
   children,
 }) => {
@@ -32,14 +32,19 @@ export const DropdownItem: React.FC<DropdownItemProps> = ({
 
   if (tag === "a" && href) {
     return (
-      <Link href={href} className={combinedClasses} onClick={handleClick}>
+      <Link
+        href={href}
+        className={combinedClasses}
+        onClick={handleClick}
+        data-dropdown-item="true"
+      >
         {children}
       </Link>
     );
   }
 
   return (
-    <button onClick={handleClick} className={combinedClasses}>
+    <button onClick={handleClick} className={combinedClasses} data-dropdown-item="true">
       {children}
     </button>
   );

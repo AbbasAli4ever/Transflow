@@ -1,11 +1,8 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  HiOutlineArrowLeft,
-  HiOutlineArrowsUpDown,
   HiOutlineBanknotes,
   HiOutlineCheckCircle,
   HiOutlineExclamationTriangle,
@@ -66,6 +63,7 @@ type ProductStockVariant = {
   variantId: string;
   size: string;
   currentStock: number;
+  avgCost: number;
 };
 
 type PartyOption = {
@@ -537,6 +535,7 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
           variantId: variant.variantId,
           size: variant.size,
           currentStock: variant.currentStock,
+          avgCost: variant.avgCost,
         })),
       }));
     } catch {
@@ -925,9 +924,6 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
 
   const partyLabel = isPurchase ? "Supplier" : "Customer";
   const pageTitle = isPurchase ? "Create Purchase" : "Create Sale";
-  const pageSubtitle = isPurchase
-    ? "Build the draft first, then optionally post it with a payment."
-    : "Build the draft first, then optionally post it and receive payment.";
   const unitLabel = isPurchase ? "Unit Cost" : "Unit Price";
   const balanceHelp = isPurchase
     ? "This shows what you currently owe the selected supplier."
@@ -936,27 +932,6 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
   return (
     <>
       <div className="mx-auto w-full max-w-[1400px] space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-3">
-            <Link
-              href="/transactions"
-              className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
-            >
-              <HiOutlineArrowLeft size={16} />
-              Back to Transactions
-            </Link>
-            <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-500 dark:bg-brand-500/10">
-                <HiOutlineArrowsUpDown size={28} />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{pageTitle}</h1>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{pageSubtitle}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {pageError && (
           <div className="flex items-start gap-3 rounded-2xl border border-error-100 bg-error-50 px-4 py-3 text-sm text-error-700 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-400">
             <HiOutlineExclamationTriangle size={18} className="mt-0.5 shrink-0" />
@@ -973,7 +948,7 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <section className={`${panelClass} overflow-visible`}>
-            <div className="border-b border-gray-200 px-6 py-5 dark:border-gray-800">
+            <div className="border-b border-gray-200 px-4 py-4 dark:border-gray-800 sm:px-6 sm:py-5">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{pageTitle} Details</h2>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 {isPurchase
@@ -982,7 +957,7 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
               </p>
             </div>
 
-            <div className="space-y-8 px-6 py-6">
+            <div className="space-y-6 px-4 py-5 sm:space-y-8 sm:px-6 sm:py-6">
               <div className={`grid gap-5 ${isSale ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
                 <div className="relative" ref={partyDropdownRef}>
                   <FieldLabel htmlFor="party-search" required>
@@ -1086,17 +1061,17 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
               </div>
 
               <div>
-                <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-gray-800">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-                    <thead className="bg-gray-50 dark:bg-gray-900/40">
+                <div className="overflow-x-visible rounded-2xl border border-gray-200 dark:border-gray-800">
+                  <table className="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-800">
+                    <thead className="hidden bg-gray-50 dark:bg-gray-900/40 md:table-header-group">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Product</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Size / Variant</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Qty</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{unitLabel}</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Discount</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Line Total</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Action</th>
+                        <th className="w-[24%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-4">Product</th>
+                        <th className="w-[12%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-4">Variant</th>
+                        <th className="w-[8%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-4">Qty</th>
+                        <th className="w-[14%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-4">{unitLabel}</th>
+                        <th className="w-[12%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-4">Discount</th>
+                        <th className="w-[16%] px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-4">Line Total</th>
+                        <th className="w-[14%] px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-4">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
@@ -1132,47 +1107,93 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
                         const hasStockWarning = isSale && !!selectedStock && line.quantity > selectedStock.currentStock;
 
                         return (
-                          <tr key={line.id} className="align-top">
-                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
-                              {selectedProduct?.name || line.productQuery || "—"}
-                            </td>
-                            <td className="px-4 py-4">
-                              <div className="min-w-[220px] text-sm text-gray-700 dark:text-gray-200">
-                                <p>{selectedVariant?.size || "—"}</p>
+                          <React.Fragment key={line.id}>
+                            <tr className="md:hidden">
+                              <td colSpan={7} className="px-3 py-3">
+                                <div className="rounded-xl border border-gray-200 bg-gray-50/40 p-3 dark:border-gray-700 dark:bg-gray-900/30">
+                                  <p className="text-sm font-semibold text-gray-800 break-words whitespace-normal dark:text-gray-100">
+                                    {selectedProduct?.name || line.productQuery || "—"}
+                                  </p>
+                                  <p className="mt-1 text-xs text-gray-500 break-words whitespace-normal dark:text-gray-400">
+                                    Variant: {selectedVariant?.size || "—"}
+                                  </p>
+                                  {hasStockWarning && (
+                                    <p className="mt-1 text-xs text-warning-600 dark:text-warning-400">
+                                      Stock warning: only {selectedStock?.currentStock ?? 0} available.
+                                    </p>
+                                  )}
+                                  <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                                    <span className="text-gray-500 dark:text-gray-400">Qty</span>
+                                    <span className="text-right font-medium text-gray-800 dark:text-gray-200">{line.quantity}</span>
+                                    <span className="text-gray-500 dark:text-gray-400">{unitLabel}</span>
+                                    <span className="text-right font-medium text-gray-800 dark:text-gray-200">{formatPKR(line.unitAmount)}</span>
+                                    <span className="text-gray-500 dark:text-gray-400">Discount</span>
+                                    <span className="text-right font-medium text-gray-800 dark:text-gray-200">{formatPKR(line.discountAmount)}</span>
+                                    <span className="text-gray-500 dark:text-gray-400">Line Total</span>
+                                    <span className="text-right font-semibold text-gray-900 dark:text-white">{formatPKR(getLineTotal(line))}</span>
+                                  </div>
+                                  <div className="mt-3 flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => openLineComposerForEdit(line.id)}
+                                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-brand-500/30 dark:hover:bg-brand-500/10 dark:hover:text-brand-400"
+                                      aria-label="Edit line"
+                                    >
+                                      <HiOutlinePencilSquare size={18} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeLine(line.id)}
+                                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:border-error-200 hover:bg-error-50 hover:text-error-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-error-500/30 dark:hover:bg-error-500/10 dark:hover:text-error-400"
+                                      aria-label="Remove line"
+                                    >
+                                      <HiOutlineTrash size={18} />
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+
+                            <tr className="hidden align-middle md:table-row">
+                              <td className="px-4 py-4 align-middle text-sm text-gray-700 dark:text-gray-200">
+                                <p className="max-w-[240px] break-words whitespace-normal">{selectedProduct?.name || line.productQuery || "—"}</p>
+                              </td>
+                              <td className="px-4 py-4 align-middle text-sm text-gray-700 dark:text-gray-200">
+                                <p className="max-w-[140px] break-words whitespace-normal">{selectedVariant?.size || "—"}</p>
                                 {hasStockWarning && (
                                   <p className="mt-1 text-xs text-warning-600 dark:text-warning-400">
-                                    Stock warning: only {selectedStock.currentStock} available.
+                                    Stock warning: only {selectedStock?.currentStock ?? 0} available.
                                   </p>
                                 )}
-                              </div>
-                            </td>
-                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-200">{line.quantity}</td>
-                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-200">{formatPKR(line.unitAmount)}</td>
-                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-200">{formatPKR(line.discountAmount)}</td>
-                            <td className="px-4 py-4 text-right text-sm font-semibold text-gray-800 dark:text-white/90">
-                              {formatPKR(getLineTotal(line))}
-                            </td>
-                            <td className="px-4 py-4 text-right">
-                              <div className="flex justify-end gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => openLineComposerForEdit(line.id)}
-                                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-brand-500/30 dark:hover:bg-brand-500/10 dark:hover:text-brand-400"
-                                  aria-label="Edit line"
-                                >
-                                  <HiOutlinePencilSquare size={18} />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeLine(line.id)}
-                                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:border-error-200 hover:bg-error-50 hover:text-error-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-error-500/30 dark:hover:bg-error-500/10 dark:hover:text-error-400"
-                                  aria-label="Remove line"
-                                >
-                                  <HiOutlineTrash size={18} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
+                              </td>
+                              <td className="px-4 py-4 align-middle text-sm text-gray-700 dark:text-gray-200">{line.quantity}</td>
+                              <td className="px-4 py-4 align-middle text-sm text-gray-700 dark:text-gray-200">{formatPKR(line.unitAmount)}</td>
+                              <td className="px-4 py-4 align-middle text-sm text-gray-700 dark:text-gray-200">{formatPKR(line.discountAmount)}</td>
+                              <td className="px-4 py-4 align-middle text-right text-sm font-semibold whitespace-nowrap text-gray-800 dark:text-white/90">
+                                {formatPKR(getLineTotal(line))}
+                              </td>
+                              <td className="px-4 py-4 align-middle text-right">
+                                <div className="flex justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => openLineComposerForEdit(line.id)}
+                                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-brand-500/30 dark:hover:bg-brand-500/10 dark:hover:text-brand-400"
+                                    aria-label="Edit line"
+                                  >
+                                    <HiOutlinePencilSquare size={18} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeLine(line.id)}
+                                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:border-error-200 hover:bg-error-50 hover:text-error-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-error-500/30 dark:hover:bg-error-500/10 dark:hover:text-error-400"
+                                    aria-label="Remove line"
+                                  >
+                                    <HiOutlineTrash size={18} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          </React.Fragment>
                         );
                       })
                       )}
@@ -1254,7 +1275,7 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
           </section>
 
           <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
-            <section className={`${panelClass} p-6`}>
+            <section className={`${panelClass} p-4 sm:p-6`}>
               <div className="mb-5 flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-success-50 text-success-600 dark:bg-success-500/10 dark:text-success-400">
                   <HiOutlineBanknotes size={22} />
@@ -1329,7 +1350,7 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
           />
           <div className="fixed inset-y-0 right-0 z-[80] w-full max-w-xl border-l border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900">
             <div className="flex h-full flex-col">
-              <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5 dark:border-gray-800">
+              <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-4 py-4 dark:border-gray-800 sm:px-6 sm:py-5">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                     {editingLineId ? "Edit Line Item" : "Add Line Item"}
@@ -1348,7 +1369,7 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
                 </button>
               </div>
 
-              <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
+              <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
                 <div className="relative" ref={composerProductDropdownRef}>
                   <FieldLabel htmlFor="composer-product" required>
                     Product
@@ -1572,7 +1593,7 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4 dark:border-gray-800">
+              <div className="flex flex-col-reverse gap-3 border-t border-gray-200 px-4 py-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-end sm:px-6">
                 <Button variant="outline" onClick={closeLineComposer}>
                   Cancel
                 </Button>

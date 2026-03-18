@@ -27,7 +27,8 @@ import {
   updateCustomer,
   changeCustomerStatus,
 } from "@/lib/customers";
-import { ApiError } from "@/lib/api";
+import { ApiError, isRateLimitError } from "@/lib/api";
+import RateLimitBanner from "@/components/ui/RateLimitBanner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -379,6 +380,7 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<ApiCustomer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [rateLimited, setRateLimited] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ACTIVE" | "INACTIVE" | "All">("ACTIVE");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -407,6 +409,7 @@ export default function CustomersPage() {
   const fetchCustomers = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    setRateLimited(false);
     try {
       const result = await listCustomers({
         page,
@@ -419,8 +422,12 @@ export default function CustomersPage() {
       setCustomers(result.data);
       setMeta({ total: result.meta.total, totalPages: result.meta.totalPages });
     } catch (err) {
-      const apiErr = err as ApiError;
-      setError(apiErr.message ?? "Failed to load customers.");
+      if (isRateLimitError(err)) {
+        setRateLimited(true);
+      } else {
+        const apiErr = err as ApiError;
+        setError(apiErr.message ?? "Failed to load customers.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -542,7 +549,10 @@ export default function CustomersPage() {
       </div>
 
       {/* Error banner */}
-      {error && (
+      {rateLimited && (
+        <RateLimitBanner onRetry={() => void fetchCustomers()} />
+      )}
+      {error && !rateLimited && (
         <div className="mb-4 flex items-start gap-2 rounded-xl bg-error-50 px-4 py-3 text-sm text-error-600 dark:bg-error-500/10 dark:text-error-400">
           <HiOutlineExclamationTriangle size={16} className="mt-0.5 shrink-0" />
           {error}

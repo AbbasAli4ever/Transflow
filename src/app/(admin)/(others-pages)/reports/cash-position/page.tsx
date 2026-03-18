@@ -6,8 +6,9 @@ import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.css";
 import { HiOutlineCalendar, HiOutlineExclamationTriangle } from "react-icons/hi2";
 import Button from "@/components/ui/button/Button";
+import RateLimitBanner from "@/components/ui/RateLimitBanner";
 import { useAuth } from "@/context/AuthContext";
-import { ApiError } from "@/lib/api";
+import { ApiError, isRateLimitError } from "@/lib/api";
 import {
   CashPositionAccountType,
   CashPositionReport,
@@ -42,6 +43,7 @@ export default function CashPositionPage() {
   const [report, setReport] = useState<CashPositionReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rateLimited, setRateLimited] = useState(false);
   const [hasLoadedDefaultReport, setHasLoadedDefaultReport] = useState(false);
 
   const dateRef = useRef<HTMLInputElement>(null);
@@ -63,12 +65,17 @@ export default function CashPositionPage() {
     if (!asOfDate) return;
     setLoading(true);
     setError(null);
+    setRateLimited(false);
     try {
       const data = await getCashPosition(asOfDate);
       setReport(data);
     } catch (err) {
-      const apiErr = err as ApiError;
-      setError(apiErr.message ?? "Failed to generate cash position report.");
+      if (isRateLimitError(err)) {
+        setRateLimited(true);
+      } else {
+        const apiErr = err as ApiError;
+        setError(apiErr.message ?? "Failed to generate cash position report.");
+      }
     } finally {
       setLoading(false);
     }
@@ -142,7 +149,10 @@ export default function CashPositionPage() {
         </Button>
       </div>
 
-      {error && (
+      {rateLimited && (
+        <RateLimitBanner onRetry={() => void handleGenerate()} />
+      )}
+      {error && !rateLimited && (
         <div className="mb-6 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
           <HiOutlineExclamationTriangle className="h-5 w-5 flex-shrink-0" />
           <span className="text-sm">{error}</span>

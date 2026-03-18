@@ -28,7 +28,8 @@ import {
   updateProduct,
   changeProductStatus,
 } from "@/lib/products";
-import { ApiError } from "@/lib/api";
+import { ApiError, isRateLimitError } from "@/lib/api";
+import RateLimitBanner from "@/components/ui/RateLimitBanner";
 
 // ─── Small Action Button ──────────────────────────────────────────────────────
 
@@ -558,6 +559,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [rateLimited, setRateLimited] = useState(false);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -592,6 +594,7 @@ export default function ProductsPage() {
   const fetchProducts = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    setRateLimited(false);
     try {
       const params: ListProductsParams = {
         page,
@@ -615,8 +618,12 @@ export default function ProductsPage() {
         setAllCategories((prev) => Array.from(new Set([...prev, ...cats])));
       }
     } catch (err) {
-      const apiErr = err as { message?: string };
-      setError(apiErr.message ?? "Failed to load products.");
+      if (isRateLimitError(err)) {
+        setRateLimited(true);
+      } else {
+        const apiErr = err as { message?: string };
+        setError(apiErr.message ?? "Failed to load products.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -741,7 +748,10 @@ export default function ProductsPage() {
       </div>
 
       {/* Error banner */}
-      {error && (
+      {rateLimited && (
+        <RateLimitBanner onRetry={() => void fetchProducts()} />
+      )}
+      {error && !rateLimited && (
         <div className="mb-4 flex items-start gap-2 rounded-xl bg-error-50 px-4 py-3 text-sm text-error-600 dark:bg-error-500/10 dark:text-error-400">
           <HiOutlineExclamationTriangle size={16} className="mt-0.5 shrink-0" />
           {error}

@@ -73,20 +73,22 @@ function StatCard({
   label,
   value,
   sub,
-  badge,
+  valueSuffix,
 }: {
   label: string;
   value: string;
   sub?: string;
-  badge?: React.ReactNode;
+  valueSuffix?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col justify-between rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
       <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</p>
       <div className="mt-2">
-        <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+          {valueSuffix}
+        </div>
         {sub && <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{sub}</p>}
-        {badge && <div className="mt-2">{badge}</div>}
       </div>
     </div>
   );
@@ -980,19 +982,21 @@ export default function SupplierDetailClient({ id }: { id: string }) {
       <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{supplier.name}</h1>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{supplier.name}</h1>
+              <Badge
+                variant="solid"
+                color={supplier.status === "ACTIVE" ? "success" : "warning"}
+                size="sm"
+              >
+                {supplier.status}
+              </Badge>
+            </div>
             <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
               ID: {supplier.id.slice(0, 8)}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge
-              variant="solid"
-              color={supplier.status === "ACTIVE" ? "success" : "warning"}
-              size="sm"
-            >
-              {supplier.status}
-            </Badge>
             <Button
               variant="outline"
               size="sm"
@@ -1050,8 +1054,9 @@ export default function SupplierDetailClient({ id }: { id: string }) {
         <StatCard
           label="Current Balance"
           value={balance ? formatPKR(balance.currentBalance) : "—"}
-          badge={
-            <span className="inline-flex items-center rounded-full bg-error-50 px-2.5 py-0.5 text-xs font-semibold text-error-600 dark:bg-error-500/15 dark:text-error-400">
+          sub="Outstanding payable to supplier"
+          valueSuffix={
+            <span className="inline-flex items-center rounded-full bg-error-50 px-2 py-0.5 text-xs font-semibold text-error-600 dark:bg-error-500/15 dark:text-error-400">
               PAYABLE
             </span>
           }

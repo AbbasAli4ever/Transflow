@@ -5,8 +5,9 @@ import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.css";
 import { HiOutlineCalendar, HiOutlineExclamationTriangle } from "react-icons/hi2";
 import Button from "@/components/ui/button/Button";
+import RateLimitBanner from "@/components/ui/RateLimitBanner";
 import { getProfitLossReport, ProfitLossReport, formatPKR } from "@/lib/reports";
-import { ApiError } from "@/lib/api";
+import { ApiError, isRateLimitError } from "@/lib/api";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -111,6 +112,7 @@ export default function ProfitLossPage() {
   const [report, setReport] = useState<ProfitLossReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rateLimited, setRateLimited] = useState(false);
   const [hasLoadedDefaultReport, setHasLoadedDefaultReport] = useState(false);
 
   const fromRef = useRef<HTMLInputElement>(null);
@@ -148,12 +150,17 @@ export default function ProfitLossPage() {
     if (!dateFrom || !dateTo) return;
     setLoading(true);
     setError(null);
+    setRateLimited(false);
     try {
       const data = await getProfitLossReport(dateFrom, dateTo);
       setReport(data);
     } catch (err) {
-      const apiErr = err as ApiError;
-      setError(apiErr.message ?? "Failed to generate report");
+      if (isRateLimitError(err)) {
+        setRateLimited(true);
+      } else {
+        const apiErr = err as ApiError;
+        setError(apiErr.message ?? "Failed to generate report");
+      }
     } finally {
       setLoading(false);
     }
@@ -228,7 +235,10 @@ export default function ProfitLossPage() {
       </div>
 
       {/* Error */}
-      {error && (
+      {rateLimited && (
+        <RateLimitBanner onRetry={() => void handleGenerate()} />
+      )}
+      {error && !rateLimited && (
         <div className="flex items-center gap-2 p-4 mb-6 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
           <HiOutlineExclamationTriangle className="w-5 h-5 flex-shrink-0" />
           <span className="text-sm">{error}</span>

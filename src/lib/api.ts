@@ -57,6 +57,10 @@ export interface ApiError {
   requestId?: string;
 }
 
+export function isRateLimitError(err: unknown): boolean {
+  return (err as ApiError)?.statusCode === 429;
+}
+
 // ─── Core request ─────────────────────────────────────────────────────────────
 
 export async function apiRequest<T>(

@@ -599,8 +599,8 @@ export default function ProductsPage() {
       const params: ListProductsParams = {
         page,
         limit: 20,
-        sortBy: "name",
-        sortOrder: "asc",
+        sortBy: "createdAt",
+        sortOrder: "desc",
       };
       if (debouncedSearch) params.search = debouncedSearch;
       if (statusFilter !== "ALL") params.status = statusFilter;

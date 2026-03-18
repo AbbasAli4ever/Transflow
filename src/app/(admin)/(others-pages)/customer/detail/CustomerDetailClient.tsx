@@ -718,7 +718,7 @@ function TransactionsTab({ customerId }: { customerId: string }) {
         customerId,
         page: p,
         limit,
-        sortBy: "transactionDate",
+        sortBy: "createdAt",
         sortOrder: "desc",
         ...(type ? { type } : {}),
         ...(status ? { status } : {}),

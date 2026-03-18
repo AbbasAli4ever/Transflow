@@ -182,7 +182,11 @@ export default function ExpensesPage() {
         expenseCategoryId: categoryFilter || undefined,
         status: statusFilter,
       });
-      setExpenses(result.data);
+      setExpenses(
+        [...result.data].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+      );
       setMeta(result.meta);
     } catch (err) {
       const apiErr = err as ApiError;
@@ -199,7 +203,11 @@ export default function ExpensesPage() {
         limit: 100,
         status: "ACTIVE",
       });
-      setCategories(result.data);
+      setCategories(
+        [...result.data].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+      );
     } catch {
       setCategories([]);
     }

@@ -177,7 +177,7 @@ export default function TransactionsPage() {
   const [typeFilter, setTypeFilter] = useState<TransactionType | "">("");
   const [statusFilter, setStatusFilter] = useState<TransactionStatus | "">("");
   const [sortBy, setSortBy] = useState<"transactionDate" | "createdAt" | "totalAmount">(
-    "transactionDate"
+    "createdAt"
   );
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
@@ -317,16 +317,16 @@ export default function TransactionsPage() {
             limit: 5,
             page: 1,
             status: "ALL",
-            sortBy: "name",
-            sortOrder: "asc",
+            sortBy: "createdAt",
+            sortOrder: "desc",
           }),
           listCustomers({
             search: partyQuery,
             limit: 5,
             page: 1,
             status: "ALL",
-            sortBy: "name",
-            sortOrder: "asc",
+            sortBy: "createdAt",
+            sortOrder: "desc",
           }),
         ]);
 

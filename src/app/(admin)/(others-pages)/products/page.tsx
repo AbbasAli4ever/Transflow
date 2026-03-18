@@ -398,6 +398,8 @@ export default function ProductsPage() {
         limit: 20,
         search: debouncedSearch || undefined,
         status: statusFilter === "ALL" ? "ALL" : statusFilter,
+        sortBy: "createdAt",
+        sortOrder: "desc",
       });
       setProducts(result.data);
       setMeta({ total: result.meta.total, totalPages: result.meta.totalPages });

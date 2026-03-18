@@ -139,8 +139,16 @@ export default function ExpenseFormPage({ mode }: { mode: "create" | "edit" }) {
 
         if (cancelled) return;
 
-        setCategories(categoriesRes.data);
-        setAccounts(accountsRes.data);
+        setCategories(
+          [...categoriesRes.data].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+        );
+        setAccounts(
+          [...accountsRes.data].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+        );
 
         if (isEdit) {
           const expenseId = sessionStorage.getItem("expenseId");

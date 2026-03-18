@@ -109,15 +109,18 @@ export default function CustomerPaymentPage() {
       setPageError(null);
       try {
         const [customerRes, accountRes] = await Promise.all([
-          listCustomers({ status: "ACTIVE", limit: 100, page: 1, sortBy: "name", sortOrder: "asc" }),
+          listCustomers({ status: "ACTIVE", limit: 100, page: 1, sortBy: "createdAt", sortOrder: "desc" }),
           listPaymentAccounts({ status: "ACTIVE", limit: 100, page: 1 }),
         ]);
 
         if (cancelled) return;
 
+        const sortedAccounts = [...accountRes.data].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
         setCustomers(customerRes.data);
-        setAccounts(accountRes.data);
-        setPaymentAccountId(accountRes.data[0]?.id ?? "");
+        setAccounts(sortedAccounts);
+        setPaymentAccountId(sortedAccounts[0]?.id ?? "");
       } catch (err) {
         if (cancelled) return;
         const apiErr = err as ApiError;

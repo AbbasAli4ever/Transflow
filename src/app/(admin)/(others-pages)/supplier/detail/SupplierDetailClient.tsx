@@ -716,7 +716,7 @@ function TransactionsTab({ supplierId }: { supplierId: string }) {
         supplierId,
         page: p,
         limit,
-        sortBy: "transactionDate",
+        sortBy: "createdAt",
         sortOrder: "desc",
         ...(type ? { type } : {}),
         ...(status ? { status } : {}),

@@ -371,9 +371,9 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
       try {
         const [partyRes, productRes, accountRes] = await Promise.all([
           isPurchase
-            ? listSuppliers({ status: "ACTIVE", limit: 100, page: 1, sortBy: "name", sortOrder: "asc" })
-            : listCustomers({ status: "ACTIVE", limit: 100, page: 1, sortBy: "name", sortOrder: "asc" }),
-          listProducts({ status: "ACTIVE", limit: 100, page: 1, sortBy: "name", sortOrder: "asc" }),
+            ? listSuppliers({ status: "ACTIVE", limit: 100, page: 1, sortBy: "createdAt", sortOrder: "desc" })
+            : listCustomers({ status: "ACTIVE", limit: 100, page: 1, sortBy: "createdAt", sortOrder: "desc" }),
+          listProducts({ status: "ACTIVE", limit: 100, page: 1, sortBy: "createdAt", sortOrder: "desc" }),
           listPaymentAccounts({ status: "ACTIVE", limit: 100, page: 1 }),
         ]);
 
@@ -401,8 +401,11 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
           );
         }
 
+        const sortedAccounts = [...accountRes.data].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
         setProducts(productRes.data);
-        setPaymentAccounts(accountRes.data);
+        setPaymentAccounts(sortedAccounts);
       } catch (err) {
         if (cancelled) return;
         const apiErr = err as ApiError;
@@ -717,6 +720,7 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
             : line
         )
       );
+      closeLineComposer();
     } else {
       setLines((current) => [
         ...current,
@@ -728,8 +732,12 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
           discountAmount: Math.max(0, Math.trunc(lineComposer.discountAmount)),
         },
       ]);
+
+      // Keep composer open for rapid multi-line entry.
+      setLineComposer(createEmptyLine());
+      setLineComposerError(null);
+      setLineComposerProductOpen(true);
     }
-    closeLineComposer();
     setValidationError(null);
   };
 

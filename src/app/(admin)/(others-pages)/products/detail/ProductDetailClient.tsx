@@ -609,7 +609,15 @@ function TransactionHistoryTab({
   useEffect(() => {
     setLoading(true);
     setError(null);
-    listTransactions({ type, status: "POSTED", productId, page, limit: 20 })
+    listTransactions({
+      type,
+      status: "POSTED",
+      productId,
+      page,
+      limit: 20,
+      sortBy: "createdAt",
+      sortOrder: "desc",
+    })
       .then((res) => {
         setTransactions(res.data);
         setMeta({ page: res.meta.page, totalPages: res.meta.totalPages, total: res.meta.total });

@@ -383,7 +383,7 @@ export default function CustomersPage() {
   const [rateLimited, setRateLimited] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ACTIVE" | "INACTIVE" | "All">("ACTIVE");
-  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDropOpen, setSortDropOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
@@ -417,7 +417,7 @@ export default function CustomersPage() {
         search: debouncedSearch || undefined,
         status: statusFilter === "All" ? "ALL" : statusFilter,
         sortBy: sortKey,
-        sortOrder: sortKey === "balance" ? "desc" : "asc",
+        sortOrder: sortKey === "name" ? "asc" : "desc",
       });
       setCustomers(result.data);
       setMeta({ total: result.meta.total, totalPages: result.meta.totalPages });

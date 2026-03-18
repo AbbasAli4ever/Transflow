@@ -130,13 +130,16 @@ export default function CustomerReturnPage() {
       setPageError(null);
       try {
         const [customerRes, accountRes] = await Promise.all([
-          listCustomers({ status: "ACTIVE", limit: 100, page: 1, sortBy: "name", sortOrder: "asc" }),
+          listCustomers({ status: "ACTIVE", limit: 100, page: 1, sortBy: "createdAt", sortOrder: "desc" }),
           listPaymentAccounts({ status: "ACTIVE", limit: 100, page: 1 }),
         ]);
         if (cancelled) return;
         setCustomers(customerRes.data);
-        setAccounts(accountRes.data);
-        setPaymentAccountId(accountRes.data[0]?.id ?? "");
+        const sortedAccounts = [...accountRes.data].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setAccounts(sortedAccounts);
+        setPaymentAccountId(sortedAccounts[0]?.id ?? "");
       } catch (err) {
         if (!cancelled) {
           const apiErr = err as ApiError;
@@ -177,7 +180,7 @@ export default function CustomerReturnPage() {
           status: "POSTED",
           limit: 100,
           page: 1,
-          sortBy: "transactionDate",
+          sortBy: "createdAt",
           sortOrder: "desc",
         });
         if (cancelled) return;

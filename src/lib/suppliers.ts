@@ -125,6 +125,10 @@ export interface ApiTransaction {
   deliveryFee: number;
   totalAmount: number;
   paidNow: number;
+  receivedNow?: number;
+  paymentAccountId?: string | null;
+  fromPaymentAccountId?: string | null;
+  toPaymentAccountId?: string | null;
   notes: string | null;
   postedAt: string | null;
   voidReason?: string | null;

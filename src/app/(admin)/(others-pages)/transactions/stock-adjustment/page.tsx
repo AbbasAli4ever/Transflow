@@ -140,8 +140,8 @@ export default function StockAdjustmentPage() {
           status: "ACTIVE",
           limit: 100,
           page: 1,
-          sortBy: "name",
-          sortOrder: "asc",
+          sortBy: "createdAt",
+          sortOrder: "desc",
         });
         if (!cancelled) {
           setProducts(result.data);

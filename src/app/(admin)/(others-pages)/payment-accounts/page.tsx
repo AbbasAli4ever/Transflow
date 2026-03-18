@@ -420,7 +420,11 @@ export default function PaymentAccountsPage() {
         type: typeFilter,
         status: statusFilter,
       });
-      setAccounts(result.data);
+      setAccounts(
+        [...result.data].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+      );
       setMeta({ total: result.meta.total, totalPages: result.meta.totalPages });
     } catch (err) {
       const apiErr = err as ApiError;

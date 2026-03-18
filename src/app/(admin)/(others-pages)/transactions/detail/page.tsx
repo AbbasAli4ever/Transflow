@@ -177,7 +177,11 @@ export default function TransactionDetailPage() {
         listPaymentAccounts({ status: "ACTIVE", limit: 100 }),
       ]);
       setTransaction(tx);
-      setAccounts(accountsRes.data);
+      setAccounts(
+        [...accountsRes.data].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+      );
 
       if (tx.type === "SUPPLIER_PAYMENT" && tx.supplierId) {
         const allocRes = await listTransactionAllocations({
@@ -224,15 +228,47 @@ export default function TransactionDetailPage() {
     return transaction.paymentEntries.reduce((sum, p) => sum + (p.amount || 0), 0);
   }, [transaction]);
 
+  const fallbackPaymentTotal = useMemo(() => {
+    if (!transaction) return 0;
+    const value = transaction.paidNow ?? transaction.receivedNow ?? 0;
+    return Number.isFinite(value) ? value : 0;
+  }, [transaction]);
+
+  const paymentTotalDisplay = paymentTotal > 0 ? paymentTotal : fallbackPaymentTotal;
+
+  const fallbackPaymentAccountIds = useMemo(() => {
+    if (!transaction) return [] as string[];
+
+    const ids = [
+      transaction.paymentAccountId,
+      transaction.fromPaymentAccountId,
+      transaction.toPaymentAccountId,
+    ]
+      .map((id) => (id ?? "").trim())
+      .filter((id) => id.length > 0);
+
+    return Array.from(new Set(ids));
+  }, [transaction]);
+
   const paymentAccountNames = useMemo(() => {
-    if (!transaction?.paymentEntries?.length) return [] as string[];
     const names = new Set<string>();
-    transaction.paymentEntries.forEach((p) => {
-      const acct = accountMap.get(p.paymentAccountId);
-      if (acct) names.add(acct.name);
-    });
+
+    if (transaction?.paymentEntries?.length) {
+      transaction.paymentEntries.forEach((p) => {
+        const acct = accountMap.get(p.paymentAccountId);
+        if (acct) names.add(acct.name);
+      });
+    }
+
+    if (names.size === 0 && fallbackPaymentAccountIds.length) {
+      fallbackPaymentAccountIds.forEach((id) => {
+        const acct = accountMap.get(id);
+        names.add(acct?.name ?? id);
+      });
+    }
+
     return Array.from(names);
-  }, [transaction, accountMap]);
+  }, [transaction, accountMap, fallbackPaymentAccountIds]);
 
   const updateEditLine = (lineKey: string, updates: Partial<EditLine>) => {
     setEditForm((current) => {
@@ -254,11 +290,23 @@ export default function TransactionDetailPage() {
   const initEditForm = async (tx: ApiTransaction) => {
     setEditError(null);
     if (tx.type === "PURCHASE" || tx.type === "SUPPLIER_PAYMENT" || tx.type === "SUPPLIER_RETURN") {
-      const sup = await listSuppliers({ status: "ALL", limit: 100, page: 1 });
+      const sup = await listSuppliers({
+        status: "ALL",
+        limit: 100,
+        page: 1,
+        sortBy: "createdAt",
+        sortOrder: "desc",
+      });
       setSuppliers(sup.data);
     }
     if (tx.type === "SALE" || tx.type === "CUSTOMER_PAYMENT" || tx.type === "CUSTOMER_RETURN") {
-      const cus = await listCustomers({ status: "ALL", limit: 100, page: 1 });
+      const cus = await listCustomers({
+        status: "ALL",
+        limit: 100,
+        page: 1,
+        sortBy: "createdAt",
+        sortOrder: "desc",
+      });
       setCustomers(cus.data);
     }
 
@@ -283,8 +331,8 @@ export default function TransactionDetailPage() {
       deliveryType: (tx as unknown as { deliveryType?: string }).deliveryType ?? "",
       deliveryAddress: (tx as unknown as { deliveryAddress?: string }).deliveryAddress ?? "",
       amount: (tx as unknown as { amount?: number }).amount ?? "",
-      fromPaymentAccountId: (tx as unknown as { fromPaymentAccountId?: string }).fromPaymentAccountId ?? "",
-      toPaymentAccountId: (tx as unknown as { toPaymentAccountId?: string }).toPaymentAccountId ?? "",
+      fromPaymentAccountId: tx.fromPaymentAccountId ?? "",
+      toPaymentAccountId: tx.toPaymentAccountId ?? "",
       lines,
     });
   };
@@ -481,6 +529,13 @@ export default function TransactionDetailPage() {
 
   const showAllocations =
     transaction.type === "SUPPLIER_PAYMENT" || transaction.type === "CUSTOMER_PAYMENT";
+
+  const paymentTotalLabel =
+    transaction.type === "PURCHASE" || transaction.type === "SUPPLIER_PAYMENT"
+      ? "Total Paid"
+      : transaction.type === "SALE" || transaction.type === "CUSTOMER_PAYMENT"
+        ? "Total Received"
+        : "Total Paid/Received";
 
   const unitLabel = transaction.type === "SALE" ? "Unit Price" : "Unit Cost";
   const canVoid = user?.role === "OWNER" || user?.role === "ADMIN";
@@ -716,12 +771,12 @@ export default function TransactionDetailPage() {
       {showPaymentInfo && (
         <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-6">
           <h2 className="mb-3 text-base font-semibold text-gray-900 dark:text-white">Payment Info</h2>
-          {transaction.paymentEntries && transaction.paymentEntries.length > 0 ? (
+          {paymentTotalDisplay > 0 || paymentAccountNames.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-xl border border-gray-100 p-4 dark:border-gray-700">
-                <p className="text-xs text-gray-400">Total Paid/Received</p>
+                <p className="text-xs text-gray-400">{paymentTotalLabel}</p>
                 <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                  {formatPKR(paymentTotal)}
+                  {formatPKR(paymentTotalDisplay)}
                 </p>
               </div>
               <div className="rounded-xl border border-gray-100 p-4 dark:border-gray-700">

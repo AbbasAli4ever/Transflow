@@ -132,8 +132,8 @@ export default function SupplierReturnPage() {
           status: "ACTIVE",
           limit: 100,
           page: 1,
-          sortBy: "name",
-          sortOrder: "asc",
+          sortBy: "createdAt",
+          sortOrder: "desc",
         });
         if (!cancelled) {
           setSuppliers(result.data);
@@ -180,7 +180,7 @@ export default function SupplierReturnPage() {
           status: "POSTED",
           limit: 100,
           page: 1,
-          sortBy: "transactionDate",
+          sortBy: "createdAt",
           sortOrder: "desc",
         });
         if (cancelled) return;

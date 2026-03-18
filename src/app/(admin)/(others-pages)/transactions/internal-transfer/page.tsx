@@ -77,9 +77,12 @@ export default function InternalTransferPage() {
       try {
         const result = await listPaymentAccounts({ status: "ACTIVE", limit: 100, page: 1 });
         if (cancelled) return;
-        setAccounts(result.data);
-        setFromAccountId(result.data[0]?.id ?? "");
-        setToAccountId(result.data[1]?.id ?? "");
+        const sortedAccounts = [...result.data].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setAccounts(sortedAccounts);
+        setFromAccountId(sortedAccounts[0]?.id ?? "");
+        setToAccountId(sortedAccounts[1]?.id ?? "");
       } catch (err) {
         if (!cancelled) {
           const apiErr = err as ApiError;

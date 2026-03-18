@@ -107,15 +107,18 @@ export default function SupplierPaymentPage() {
       setPageError(null);
       try {
         const [supplierRes, accountRes] = await Promise.all([
-          listSuppliers({ status: "ACTIVE", limit: 100, page: 1, sortBy: "name", sortOrder: "asc" }),
+          listSuppliers({ status: "ACTIVE", limit: 100, page: 1, sortBy: "createdAt", sortOrder: "desc" }),
           listPaymentAccounts({ status: "ACTIVE", limit: 100, page: 1 }),
         ]);
 
         if (cancelled) return;
 
+        const sortedAccounts = [...accountRes.data].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
         setSuppliers(supplierRes.data);
-        setAccounts(accountRes.data);
-        setPaymentAccountId(accountRes.data[0]?.id ?? "");
+        setAccounts(sortedAccounts);
+        setPaymentAccountId(sortedAccounts[0]?.id ?? "");
       } catch (err) {
         if (cancelled) return;
         const apiErr = err as ApiError;

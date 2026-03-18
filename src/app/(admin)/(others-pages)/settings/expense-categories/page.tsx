@@ -379,7 +379,11 @@ export default function ExpenseCategoriesPage() {
         search: debouncedSearch || undefined,
         status: statusFilter,
       });
-      setCategories(result.data);
+      setCategories(
+        [...result.data].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+      );
     } catch (err) {
       const apiErr = err as ApiError;
       setError(apiErr.message ?? "Failed to load expense categories.");

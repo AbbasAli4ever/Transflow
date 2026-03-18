@@ -53,6 +53,11 @@ function daysAgo(isoDate: string): number {
   return Math.floor((Date.now() - new Date(isoDate).getTime()) / 86_400_000);
 }
 
+function goToTransactionDetail(transactionId: string) {
+  sessionStorage.setItem("transactionId", transactionId);
+  window.location.href = "/transactions/detail";
+}
+
 // ─── Shared input styles ──────────────────────────────────────────────────────
 
 const inputClass =
@@ -385,6 +390,8 @@ function LedgerTab({ customerId }: { customerId: string }) {
   const [runFrom, setRunFrom] = useState(firstOfMonth);
   const [runTo, setRunTo] = useState(today);
   const [statement, setStatement] = useState<CustomerStatement | null>(null);
+  const [documentTxMap, setDocumentTxMap] = useState<Record<string, string>>({});
+  const [resolvingDocument, setResolvingDocument] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -396,6 +403,28 @@ function LedgerTab({ customerId }: { customerId: string }) {
     try {
       const data = await getCustomerStatement(customerId, from, to);
       setStatement(data);
+
+      try {
+        const txRes = await listTransactions({
+          customerId,
+          page: 1,
+          limit: 500,
+          dateFrom: from,
+          dateTo: to,
+          sortBy: "createdAt",
+          sortOrder: "desc",
+        });
+
+        const map: Record<string, string> = {};
+        txRes.data.forEach((tx) => {
+          if (tx.documentNumber) {
+            map[tx.documentNumber] = tx.id;
+          }
+        });
+        setDocumentTxMap(map);
+      } catch {
+        setDocumentTxMap({});
+      }
     } catch (err) {
       const apiErr = err as ApiError;
       setError(apiErr.message ?? "Failed to load ledger.");
@@ -449,6 +478,48 @@ function LedgerTab({ customerId }: { customerId: string }) {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const openTransactionFromDocument = async (documentNumber: string) => {
+    const normalized = documentNumber.trim();
+    if (!normalized) return;
+
+    const cachedId = documentTxMap[normalized];
+    if (cachedId) {
+      goToTransactionDetail(cachedId);
+      return;
+    }
+
+    setResolvingDocument(normalized);
+    try {
+      let page = 1;
+      let totalPages = 1;
+
+      do {
+        const txRes = await listTransactions({
+          customerId,
+          page,
+          limit: 100,
+          sortBy: "createdAt",
+          sortOrder: "desc",
+        });
+
+        const found = txRes.data.find(
+          (tx) => (tx.documentNumber ?? "").trim().toLowerCase() === normalized.toLowerCase()
+        );
+
+        if (found) {
+          setDocumentTxMap((current) => ({ ...current, [normalized]: found.id }));
+          goToTransactionDetail(found.id);
+          return;
+        }
+
+        totalPages = txRes.meta.totalPages;
+        page += 1;
+      } while (page <= totalPages);
+    } finally {
+      setResolvingDocument(null);
+    }
+  };
 
   return (
     <div>
@@ -513,7 +584,18 @@ function LedgerTab({ customerId }: { customerId: string }) {
                     {fmtDate(entry.date)}
                   </td>
                   <td className="py-3.5 pr-4 text-sm font-medium text-brand-500 whitespace-nowrap">
-                    {entry.documentNumber}
+                    {entry.documentNumber ? (
+                      <button
+                        type="button"
+                        onClick={() => void openTransactionFromDocument(entry.documentNumber)}
+                        className="transition hover:underline"
+                        disabled={resolvingDocument === entry.documentNumber}
+                      >
+                        {entry.documentNumber}
+                      </button>
+                    ) : (
+                      entry.documentNumber
+                    )}
                   </td>
                   <td className={`py-3.5 pr-4 text-sm font-semibold whitespace-nowrap ${entry.credit > 0 ? "text-error-600" : "text-success-600"}`}>
                     {entry.type}
@@ -563,7 +645,7 @@ function LedgerTab({ customerId }: { customerId: string }) {
 
 // ─── Open Documents Tab ───────────────────────────────────────────────────────
 
-function OpenDocumentsTab({ openDocs }: { openDocs: CustomerOpenDocumentsResponse | null }) {
+function OpenDocumentsTab({ openDocs, customerId }: { openDocs: CustomerOpenDocumentsResponse | null; customerId: string }) {
   const outstandingColor = (days: number) => {
     if (days >= 30) return "bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400";
     if (days >= 14) return "bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-500";
@@ -618,7 +700,13 @@ function OpenDocumentsTab({ openDocs }: { openDocs: CustomerOpenDocumentsRespons
                   return (
                     <tr key={doc.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40">
                       <td className="py-3.5 pr-4 text-sm font-medium text-brand-500 whitespace-nowrap">
-                        {doc.documentNumber}
+                        <button
+                          type="button"
+                          onClick={() => goToTransactionDetail(doc.id)}
+                          className="transition hover:underline"
+                        >
+                          {doc.documentNumber}
+                        </button>
                       </td>
                       <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                         {fmtDate(doc.transactionDate)}
@@ -638,7 +726,14 @@ function OpenDocumentsTab({ openDocs }: { openDocs: CustomerOpenDocumentsRespons
                         {days}d
                       </td>
                       <td className="py-3.5">
-                        <button className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-600">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sessionStorage.setItem("customerId", customerId);
+                            window.location.href = "/transactions/customer-payment";
+                          }}
+                          className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-600"
+                        >
                           Receive Payment
                         </button>
                       </td>
@@ -823,7 +918,13 @@ function TransactionsTab({ customerId }: { customerId: string }) {
                       {fmtDate(tx.transactionDate)}
                     </td>
                     <td className="py-3.5 pr-4 text-sm font-medium text-brand-500 whitespace-nowrap">
-                      {tx.documentNumber ?? <span className="text-gray-400 italic">Draft</span>}
+                      <button
+                        type="button"
+                        onClick={() => goToTransactionDetail(tx.id)}
+                        className="transition hover:underline"
+                      >
+                        {tx.documentNumber ?? <span className="text-gray-400 italic">Draft</span>}
+                      </button>
                     </td>
                     <td className="py-3.5 pr-4 whitespace-nowrap">
                       <span
@@ -1078,7 +1179,7 @@ export default function CustomerDetailClient({ id }: { id: string }) {
 
         <div className="p-5">
           {activeTab === "ledger" && <LedgerTab customerId={customer.id} />}
-          {activeTab === "openDocuments" && <OpenDocumentsTab openDocs={openDocs} />}
+          {activeTab === "openDocuments" && <OpenDocumentsTab openDocs={openDocs} customerId={customer.id} />}
           {activeTab === "transactions" && <TransactionsTab customerId={customer.id} />}
         </div>
       </div>

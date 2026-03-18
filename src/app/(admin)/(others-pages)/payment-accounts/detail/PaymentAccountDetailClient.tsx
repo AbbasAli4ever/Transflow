@@ -25,6 +25,7 @@ import {
   updatePaymentAccount,
   changePaymentAccountStatus,
 } from "@/lib/paymentAccounts";
+import { listTransactions } from "@/lib/suppliers";
 import { ApiError } from "@/lib/api";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -38,6 +39,11 @@ const fmtDate = (d: string) =>
 
 const toLocalDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+function goToTransactionDetail(transactionId: string) {
+  sessionStorage.setItem("transactionId", transactionId);
+  window.location.href = "/transactions/detail";
+}
 
 // ─── Shared input styles ──────────────────────────────────────────────────────
 
@@ -300,6 +306,8 @@ function StatementSection({ accountId }: { accountId: string }) {
   const [runFrom, setRunFrom] = useState(firstOfMonth);
   const [runTo, setRunTo] = useState(today);
   const [statement, setStatement] = useState<PaymentAccountStatement | null>(null);
+  const [documentTxMap, setDocumentTxMap] = useState<Record<string, string>>({});
+  const [resolvingDocument, setResolvingDocument] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -309,6 +317,27 @@ function StatementSection({ accountId }: { accountId: string }) {
     try {
       const data = await getPaymentAccountStatement(accountId, from, to);
       setStatement(data);
+
+      try {
+        const txRes = await listTransactions({
+          page: 1,
+          limit: 500,
+          dateFrom: from,
+          dateTo: to,
+          sortBy: "createdAt",
+          sortOrder: "desc",
+        });
+
+        const map: Record<string, string> = {};
+        txRes.data.forEach((tx) => {
+          if (tx.documentNumber) {
+            map[tx.documentNumber] = tx.id;
+          }
+        });
+        setDocumentTxMap(map);
+      } catch {
+        setDocumentTxMap({});
+      }
     } catch (err) {
       const apiErr = err as ApiError;
       setError(apiErr.message ?? "Failed to load statement.");
@@ -360,6 +389,49 @@ function StatementSection({ accountId }: { accountId: string }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+    const openTransactionFromDocument = async (documentNumber: string) => {
+      const normalized = documentNumber.trim();
+      if (!normalized) return;
+
+      const cachedId = documentTxMap[normalized];
+      if (cachedId) {
+        goToTransactionDetail(cachedId);
+        return;
+      }
+
+      setResolvingDocument(normalized);
+      try {
+        let page = 1;
+        let totalPages = 1;
+
+        do {
+          const txRes = await listTransactions({
+            page,
+            limit: 100,
+            dateFrom: runFrom,
+            dateTo: runTo,
+            sortBy: "createdAt",
+            sortOrder: "desc",
+          });
+
+          const found = txRes.data.find(
+            (tx) => (tx.documentNumber ?? "").trim().toLowerCase() === normalized.toLowerCase()
+          );
+
+          if (found) {
+            setDocumentTxMap((current) => ({ ...current, [normalized]: found.id }));
+            goToTransactionDetail(found.id);
+            return;
+          }
+
+          totalPages = txRes.meta.totalPages;
+          page += 1;
+        } while (page <= totalPages);
+      } finally {
+        setResolvingDocument(null);
+      }
+    };
 
   const totalIn = statement ? statement.entries.reduce((s, e) => s + e.moneyIn, 0) : 0;
   const totalOut = statement ? statement.entries.reduce((s, e) => s + e.moneyOut, 0) : 0;
@@ -456,7 +528,18 @@ function StatementSection({ accountId }: { accountId: string }) {
                     {fmtDate(entry.date)}
                   </td>
                   <td className="py-3.5 pr-4 text-sm font-medium text-brand-500 whitespace-nowrap">
-                    {entry.documentNumber ?? "—"}
+                    {entry.documentNumber ? (
+                      <button
+                        type="button"
+                        onClick={() => void openTransactionFromDocument(entry.documentNumber)}
+                        className="transition hover:underline"
+                        disabled={resolvingDocument === entry.documentNumber}
+                      >
+                        {entry.documentNumber}
+                      </button>
+                    ) : (
+                      entry.documentNumber ?? "—"
+                    )}
                   </td>
                   <td className="py-3.5 pr-4 text-sm font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                     {entry.type}

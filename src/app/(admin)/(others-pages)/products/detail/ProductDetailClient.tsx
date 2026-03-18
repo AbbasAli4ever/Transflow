@@ -44,6 +44,11 @@ const fmtDate = (d: string) =>
     day: "2-digit",
   });
 
+function goToTransactionDetail(transactionId: string) {
+  sessionStorage.setItem("transactionId", transactionId);
+  window.location.href = "/transactions/detail";
+}
+
 // ─── Shared input styles ──────────────────────────────────────────────────────
 
 const inputClass =
@@ -678,8 +683,18 @@ function TransactionHistoryTab({
                 <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                   {fmtDate(tx.transactionDate)}
                 </td>
-                <td className="py-3.5 pr-4 text-sm font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                  {tx.documentNumber ?? "—"}
+                <td className="py-3.5 pr-4 text-sm font-medium text-brand-500 whitespace-nowrap">
+                  {tx.documentNumber ? (
+                    <button
+                      type="button"
+                      onClick={() => goToTransactionDetail(tx.id)}
+                      className="transition hover:underline"
+                    >
+                      {tx.documentNumber}
+                    </button>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                   {(type === "PURCHASE" ? tx.supplier?.name : tx.customer?.name) ?? "—"}
@@ -728,6 +743,8 @@ function MovementsSection({ productId }: { productId: string }) {
   const [movements, setMovements] = useState<ProductMovement[]>([]);
   const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
   const [page, setPage] = useState(1);
+  const [documentTxMap, setDocumentTxMap] = useState<Record<string, string>>({});
+  const [resolvingDocument, setResolvingDocument] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -742,6 +759,48 @@ function MovementsSection({ productId }: { productId: string }) {
       .catch((err: ApiError) => setError(err.message ?? "Failed to load movements."))
       .finally(() => setLoading(false));
   }, [productId, page]);
+
+  const openTransactionFromDocument = async (documentNumber: string) => {
+    const normalized = documentNumber.trim();
+    if (!normalized) return;
+
+    const cachedId = documentTxMap[normalized];
+    if (cachedId) {
+      goToTransactionDetail(cachedId);
+      return;
+    }
+
+    setResolvingDocument(normalized);
+    try {
+      let txPage = 1;
+      let totalPages = 1;
+
+      do {
+        const txRes = await listTransactions({
+          productId,
+          page: txPage,
+          limit: 100,
+          sortBy: "createdAt",
+          sortOrder: "desc",
+        });
+
+        const found = txRes.data.find(
+          (tx) => (tx.documentNumber ?? "").trim().toLowerCase() === normalized.toLowerCase()
+        );
+
+        if (found) {
+          setDocumentTxMap((current) => ({ ...current, [normalized]: found.id }));
+          goToTransactionDetail(found.id);
+          return;
+        }
+
+        totalPages = txRes.meta.totalPages;
+        txPage += 1;
+      } while (txPage <= totalPages);
+    } finally {
+      setResolvingDocument(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -792,8 +851,19 @@ function MovementsSection({ productId }: { productId: string }) {
                 <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
                   {fmtDate(mov.date)}
                 </td>
-                <td className="py-3.5 pr-4 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                  {mov.documentNumber ?? "—"}
+                <td className="py-3.5 pr-4 text-sm font-medium text-brand-500 whitespace-nowrap">
+                  {mov.documentNumber ? (
+                    <button
+                      type="button"
+                      onClick={() => void openTransactionFromDocument(mov.documentNumber)}
+                      className="transition hover:underline"
+                      disabled={resolvingDocument === mov.documentNumber}
+                    >
+                      {mov.documentNumber}
+                    </button>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td className="py-3.5 pr-4 text-sm font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
                   {mov.type}

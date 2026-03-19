@@ -215,7 +215,7 @@ const AppSidebar: React.FC = () => {
                     <Link
                       href={subItem.path}
                       className={`menu-dropdown-item ${
-                        isExactActive(subItem.path)
+                        isSubmenuItemActive(subItem.path)
                           ? "menu-dropdown-item-active"
                           : "menu-dropdown-item-inactive"
                       }`}
@@ -225,7 +225,7 @@ const AppSidebar: React.FC = () => {
                         {subItem.new && (
                           <span
                             className={`ml-auto ${
-                              isExactActive(subItem.path)
+                              isSubmenuItemActive(subItem.path)
                                 ? "menu-dropdown-badge-active"
                                 : "menu-dropdown-badge-inactive"
                             } menu-dropdown-badge `}
@@ -236,7 +236,7 @@ const AppSidebar: React.FC = () => {
                         {subItem.pro && (
                           <span
                             className={`ml-auto ${
-                              isExactActive(subItem.path)
+                              isSubmenuItemActive(subItem.path)
                                 ? "menu-dropdown-badge-active"
                                 : "menu-dropdown-badge-inactive"
                             } menu-dropdown-badge `}
@@ -273,6 +273,15 @@ const AppSidebar: React.FC = () => {
       return pathname === path || pathname.startsWith(`${path}/`);
     },
     [pathname]
+  );
+
+  const isSubmenuItemActive = useCallback(
+    (path: string) => {
+      if (isExactActive(path)) return true;
+      if (path === "/transactions" && pathname.startsWith("/transactions/")) return true;
+      return false;
+    },
+    [isExactActive, pathname]
   );
 
   useEffect(() => {

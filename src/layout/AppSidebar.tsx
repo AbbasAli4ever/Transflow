@@ -5,7 +5,6 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import { useAuth } from "@/context/AuthContext";
-import { listExpenses } from "@/lib/expenses";
 import {
   BoxCubeIcon,
   ChevronDownIcon,
@@ -100,62 +99,24 @@ const AppSidebar: React.FC = () => {
   const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const canManageExpenses = user?.role === "OWNER" || user?.role === "ADMIN";
-  const canManageExpenseCategories = canManageExpenses;
-  const [expenseDraftCount, setExpenseDraftCount] = useState(0);
-
-  const fetchExpenseDraftCount = useCallback(async () => {
-    if (!canManageExpenses) {
-      setExpenseDraftCount(0);
-      return;
-    }
-    try {
-      const result = await listExpenses({ status: "DRAFT", limit: 1, page: 1 });
-      setExpenseDraftCount(result.meta.total);
-    } catch {
-      setExpenseDraftCount(0);
-    }
-  }, [canManageExpenses]);
-
-  useEffect(() => {
-    void fetchExpenseDraftCount();
-  }, [fetchExpenseDraftCount]);
-
-  useEffect(() => {
-    const handleExpensesChanged = () => {
-      void fetchExpenseDraftCount();
-    };
-    window.addEventListener("expenses:changed", handleExpensesChanged);
-    return () => {
-      window.removeEventListener("expenses:changed", handleExpensesChanged);
-    };
-  }, [fetchExpenseDraftCount]);
+  const canManageExpenseCategories = user?.role === "OWNER" || user?.role === "ADMIN";
 
   const navItems: NavItem[] = [
     ...BASE_NAV_ITEMS,
-    ...(canManageExpenses
-      ? [
-          {
-            icon: <ListIcon />,
-            name: "Expenses",
-            path: "/expenses",
-            badge: expenseDraftCount > 0 ? expenseDraftCount : undefined,
-          } satisfies NavItem,
-        ]
-      : []),
-    ...(canManageExpenseCategories
-      ? [
-          {
-            icon: <PlugInIcon />,
-            name: "Settings",
-            subItems: [{ name: "Expense Categories", path: "/settings/expense-categories" }],
-          } satisfies NavItem,
-        ]
-      : []),
     {
-      icon: <UserCircleIcon />,
-      name: "User Profile",
-      path: "/profile",
+      icon: <ListIcon />,
+      name: "Expenses",
+      path: "/expenses",
+    },
+    {
+      icon: <PlugInIcon />,
+      name: "Settings",
+      subItems: [
+        ...(canManageExpenseCategories
+          ? [{ name: "Expense Categories", path: "/settings/expense-categories" }]
+          : []),
+        { name: "User Profile", path: "/profile" },
+      ],
     },
   ];
 
@@ -361,7 +322,7 @@ const AppSidebar: React.FC = () => {
 
   const handleMenuButtonClick = (nav: NavItem, index: number, menuType: "main" | "others") => {
     if (nav.path === "/transactions") {
-      setOpenSubmenu({ type: menuType, index });
+      handleSubmenuToggle(index, menuType);
       if (pathname !== "/transactions") {
         router.push("/transactions");
       }

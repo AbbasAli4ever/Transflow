@@ -14,6 +14,7 @@ import {
   HiOutlineTrash,
   HiOutlineXMark,
 } from "react-icons/hi2";
+import DatePicker from "@/components/form/date-picker";
 import Badge from "@/components/ui/badge/Badge";
 import Button from "@/components/ui/button/Button";
 import { Modal } from "@/components/ui/modal";
@@ -301,28 +302,44 @@ export default function ExpensesPage() {
             <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">
               Date From
             </label>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => {
-                setDateFrom(e.target.value);
+            <DatePicker
+              id="expenses-date-from"
+              mode="single"
+              defaultDate={dateFrom || undefined}
+              placeholder="Select start date"
+              onChange={(selectedDates) => {
+                const selected = selectedDates[0];
+                setDateFrom(
+                  selected
+                    ? `${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(
+                        selected.getDate()
+                      ).padStart(2, "0")}`
+                    : ""
+                );
                 setPage(1);
               }}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
             />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">
               Date To
             </label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => {
-                setDateTo(e.target.value);
+            <DatePicker
+              id="expenses-date-to"
+              mode="single"
+              defaultDate={dateTo || undefined}
+              placeholder="Select end date"
+              onChange={(selectedDates) => {
+                const selected = selectedDates[0];
+                setDateTo(
+                  selected
+                    ? `${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(
+                        selected.getDate()
+                      ).padStart(2, "0")}`
+                    : ""
+                );
                 setPage(1);
               }}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
             />
           </div>
           <div>

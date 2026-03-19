@@ -278,7 +278,15 @@ const AppSidebar: React.FC = () => {
   const isSubmenuItemActive = useCallback(
     (path: string) => {
       if (isExactActive(path)) return true;
-      if (path === "/transactions" && pathname.startsWith("/transactions/")) return true;
+
+      if (path === "/transactions" && pathname.startsWith("/transactions/")) {
+        const hasExactTransactionSubitemMatch = BASE_NAV_ITEMS
+          .find((item) => item.path === "/transactions")
+          ?.subItems?.some((subItem) => subItem.path !== "/transactions" && subItem.path === pathname);
+
+        return !hasExactTransactionSubitemMatch;
+      }
+
       return false;
     },
     [isExactActive, pathname]

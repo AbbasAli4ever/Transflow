@@ -657,7 +657,7 @@ export default function CustomerReturnPage() {
               </div>
 
               <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-gray-800">
-                <table className="min-w-[640px] divide-y divide-gray-200 dark:divide-gray-800">
+                <table className="w-full table-auto divide-y divide-gray-200 dark:divide-gray-800">
                   <thead className="bg-gray-50 dark:bg-gray-900/40">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Product</th>

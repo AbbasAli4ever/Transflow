@@ -1,5 +1,6 @@
 "use client";
 import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
+import CommandPalette from "@/components/header/CommandPalette";
 import NotificationDropdown from "@/components/header/NotificationDropdown";
 import UserDropdown from "@/components/header/UserDropdown";
 import { useSidebar } from "@/context/SidebarContext";
@@ -12,6 +13,7 @@ import { HiOutlineArrowLeft } from "react-icons/hi2";
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const [isCommandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
@@ -43,13 +45,34 @@ const AppHeader: React.FC = () => {
   };
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const isSearchExpanded = isSearchFocused || searchValue.length > 0;
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const isSearchExpanded = isSearchFocused || isCommandPaletteOpen || searchValue.length > 0;
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "k") {
         event.preventDefault();
-        inputRef.current?.focus();
+        setCommandPaletteOpen((previous) => {
+          const next = !previous;
+
+          if (next) {
+            window.requestAnimationFrame(() => {
+              inputRef.current?.focus();
+            });
+          } else {
+            setIsSearchFocused(false);
+            window.requestAnimationFrame(() => {
+              inputRef.current?.blur();
+            });
+          }
+
+          return next;
+        });
+      }
+
+      if (event.key === "Escape") {
+        setCommandPaletteOpen(false);
+        setIsSearchFocused(false);
       }
     };
 
@@ -59,6 +82,25 @@ const AppHeader: React.FC = () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isCommandPaletteOpen) return;
+
+    const handleMouseDown = (event: MouseEvent) => {
+      const container = searchContainerRef.current;
+      if (!container) return;
+
+      if (!container.contains(event.target as Node)) {
+        setCommandPaletteOpen(false);
+        setIsSearchFocused(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+    };
+  }, [isCommandPaletteOpen]);
 
   return (
     <header className="sticky top-0 flex w-full bg-white border-gray-200 z-50 dark:border-gray-800 dark:bg-gray-900 lg:border-b">
@@ -151,9 +193,10 @@ const AppHeader: React.FC = () => {
             </svg>
           </button>
 
-          <div className="hidden lg:block lg:flex-1 lg:overflow-hidden">
+          <div className="hidden lg:block lg:flex-1 lg:overflow-visible">
             <form>
               <div
+                ref={searchContainerRef}
                 className={`relative ml-0 transition-all duration-300 ease-out will-change-[max-width] ${
                   isSearchExpanded
                     ? "w-full max-w-full"
@@ -182,9 +225,16 @@ const AppHeader: React.FC = () => {
                   type="text"
                   placeholder="Search or type command..."
                   value={searchValue}
-                  onChange={(event) => setSearchValue(event.target.value)}
-                  onFocus={() => setIsSearchFocused(true)}
+                  onChange={(event) => {
+                    setSearchValue(event.target.value);
+                    setCommandPaletteOpen(true);
+                  }}
+                  onFocus={() => {
+                    setIsSearchFocused(true);
+                    setCommandPaletteOpen(true);
+                  }}
                   onBlur={() => setIsSearchFocused(false)}
+                  onClick={() => setCommandPaletteOpen(true)}
                   className={`dark:bg-dark-900 h-11 w-full rounded-lg border bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 transition-all duration-300 ease-out focus:border-brand-300 focus:outline-hidden dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 ${
                     isSearchExpanded
                       ? "border-gray-300 dark:border-gray-700"
@@ -192,10 +242,32 @@ const AppHeader: React.FC = () => {
                   }`}
                 />
 
-                <button className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-[7px] py-[4.5px] text-xs -tracking-[0.2px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCommandPaletteOpen(true);
+                    window.requestAnimationFrame(() => {
+                      inputRef.current?.focus();
+                    });
+                  }}
+                  className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-[7px] py-[4.5px] text-xs -tracking-[0.2px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400"
+                >
                   <span> ⌘ </span>
                   <span> K </span>
                 </button>
+
+                {isCommandPaletteOpen && (
+                  <CommandPalette
+                    query={searchValue}
+                    onClose={() => {
+                      setCommandPaletteOpen(false);
+                      setIsSearchFocused(false);
+                      window.requestAnimationFrame(() => {
+                        inputRef.current?.blur();
+                      });
+                    }}
+                  />
+                )}
               </div>
             </form>
           </div>

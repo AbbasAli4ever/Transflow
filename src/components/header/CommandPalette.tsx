@@ -149,12 +149,14 @@ const badgeToneClassMap: Record<BadgeTone, string> = {
 
 type CommandPaletteProps = {
   query: string;
+  onClearQuery: () => void;
   onClose: () => void;
 };
 
-export default function CommandPalette({ query, onClose }: CommandPaletteProps) {
+export default function CommandPalette({ query, onClearQuery, onClose }: CommandPaletteProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedActionItemId, setSelectedActionItemId] = useState<string | null>(null);
+  const [activeActionIndex, setActiveActionIndex] = useState<number | null>(null);
   const [selectionNote, setSelectionNote] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -176,12 +178,27 @@ export default function CommandPalette({ query, onClose }: CommandPaletteProps) 
   }, [filteredItems]);
 
   const flatItems = useMemo(() => groupedItems.flatMap((group) => group.items), [groupedItems]);
+  const activeItem = flatItems[activeIndex];
+  const isActionMode =
+    !!activeItem?.actions?.length &&
+    selectedActionItemId === activeItem.id &&
+    activeActionIndex !== null;
+  const hasQuery = query.trim().length > 0;
 
   useEffect(() => {
     setActiveIndex(0);
     setSelectedActionItemId(null);
+    setActiveActionIndex(null);
     setSelectionNote(null);
   }, [query]);
+
+  useEffect(() => {
+    if (!selectedActionItemId) return;
+    if (flatItems[activeIndex]?.id === selectedActionItemId) return;
+
+    setSelectedActionItemId(null);
+    setActiveActionIndex(null);
+  }, [activeIndex, flatItems, selectedActionItemId]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -199,12 +216,27 @@ export default function CommandPalette({ query, onClose }: CommandPaletteProps) 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
+
+        if (isActionMode) {
+          setSelectedActionItemId(null);
+          setActiveActionIndex(null);
+          setSelectionNote("Back to results navigation.");
+          return;
+        }
+
+        if (hasQuery) {
+          onClearQuery();
+          setSelectionNote("Search cleared. Press Esc again to close.");
+          return;
+        }
+
         onClose();
         return;
       }
 
       if (event.key === "ArrowDown") {
         event.preventDefault();
+        if (isActionMode) return;
         if (flatItems.length > 0) {
           setActiveIndex((prev) => Math.min(prev + 1, flatItems.length - 1));
         }
@@ -212,28 +244,64 @@ export default function CommandPalette({ query, onClose }: CommandPaletteProps) 
 
       if (event.key === "ArrowUp") {
         event.preventDefault();
+        if (isActionMode) return;
         if (flatItems.length > 0) {
           setActiveIndex((prev) => Math.max(prev - 1, 0));
         }
       }
 
+      if (event.key === "ArrowLeft") {
+        if (!isActionMode || !activeItem?.actions?.length || activeActionIndex === null) return;
+        event.preventDefault();
+        setActiveActionIndex((prev) => {
+          if (prev === null) return 0;
+          const next = prev - 1;
+          return next < 0 ? activeItem.actions!.length - 1 : next;
+        });
+      }
+
+      if (event.key === "ArrowRight") {
+        if (!isActionMode || !activeItem?.actions?.length || activeActionIndex === null) return;
+        event.preventDefault();
+        setActiveActionIndex((prev) => {
+          if (prev === null) return 0;
+          return (prev + 1) % activeItem.actions!.length;
+        });
+      }
+
       if (event.key === "Enter") {
         event.preventDefault();
-        const activeItem = flatItems[activeIndex];
         if (!activeItem) return;
 
+        if (isActionMode && activeItem.actions?.length && activeActionIndex !== null) {
+          const selectedAction = activeItem.actions[activeActionIndex];
+          setSelectionNote(`Selected: ${selectedAction} for ${activeItem.title}`);
+          return;
+        }
+
         if (activeItem.actions?.length) {
-          setSelectedActionItemId((prev) => (prev === activeItem.id ? null : activeItem.id));
+          setSelectedActionItemId(activeItem.id);
+          setActiveActionIndex(0);
+          setSelectionNote("Action mode: use Left/Right, then press Enter.");
         } else {
           setSelectionNote(`Selected: ${activeItem.title}`);
         }
       }
 
       if (event.key === "Tab") {
-        const activeItem = flatItems[activeIndex];
         if (!activeItem?.actions?.length) return;
         event.preventDefault();
-        setSelectedActionItemId((prev) => (prev === activeItem.id ? null : activeItem.id));
+
+        if (isActionMode) {
+          setSelectedActionItemId(null);
+          setActiveActionIndex(null);
+          setSelectionNote("Back to results navigation.");
+          return;
+        }
+
+        setSelectedActionItemId(activeItem.id);
+        setActiveActionIndex(0);
+        setSelectionNote("Action mode: use Left/Right, then press Enter.");
       }
     };
 
@@ -242,7 +310,16 @@ export default function CommandPalette({ query, onClose }: CommandPaletteProps) 
     return () => {
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [activeIndex, flatItems, onClose]);
+  }, [
+    activeActionIndex,
+    activeIndex,
+    activeItem,
+    flatItems,
+    hasQuery,
+    isActionMode,
+    onClearQuery,
+    onClose,
+  ]);
 
   return (
     <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-[120000] w-full">
@@ -273,7 +350,11 @@ export default function CommandPalette({ query, onClose }: CommandPaletteProps) 
                         onClick={() => {
                           setSelectionNote(null);
                           if (item.actions?.length) {
-                            setSelectedActionItemId((prev) => (prev === item.id ? null : item.id));
+                            setSelectedActionItemId((prev) => {
+                              const next = prev === item.id ? null : item.id;
+                              setActiveActionIndex(next ? 0 : null);
+                              return next;
+                            });
                             return;
                           }
                           setSelectionNote(`Selected: ${item.title}`);
@@ -311,16 +392,28 @@ export default function CommandPalette({ query, onClose }: CommandPaletteProps) 
 
                       {isActionOpen && item.actions && (
                         <div className="mx-3 mb-2 mt-1 flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-800/60">
-                          {item.actions.map((action) => (
+                          <div className="w-full text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                            Action Mode: Use Left/Right and press Enter.
+                          </div>
+                          {item.actions.map((action, actionIndex) => {
+                            const isKeyboardActionActive =
+                              isActionMode && item.id === activeItem?.id && activeActionIndex === actionIndex;
+
+                            return (
                             <button
                               key={action}
                               type="button"
+                              onMouseEnter={() => setActiveActionIndex(actionIndex)}
                               onClick={() => setSelectionNote(`Selected: ${action} for ${item.title}`)}
-                              className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:bg-gray-700"
+                              className={`rounded-md border px-2.5 py-1.5 text-xs font-medium transition ${
+                                isKeyboardActionActive
+                                  ? "border-brand-400 bg-brand-50 text-brand-700 ring-2 ring-brand-500/25 dark:border-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
+                                  : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:bg-gray-700"
+                              }`}
                             >
                               {action}
                             </button>
-                          ))}
+                          )})}
                         </div>
                       )}
                     </div>
@@ -332,21 +425,44 @@ export default function CommandPalette({ query, onClose }: CommandPaletteProps) 
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-200 px-4 py-2.5 text-[11px] text-gray-500 dark:border-gray-800 dark:text-gray-400">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] dark:border-gray-700 dark:bg-gray-800">Up/Down</span>
-            navigate
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] dark:border-gray-700 dark:bg-gray-800">Enter</span>
-            select
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] dark:border-gray-700 dark:bg-gray-800">Tab</span>
-            actions
-          </span>
+          {isActionMode ? (
+            <>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] dark:border-gray-700 dark:bg-gray-800">Left/Right</span>
+                navigate actions
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] dark:border-gray-700 dark:bg-gray-800">Enter</span>
+                run action
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] dark:border-gray-700 dark:bg-gray-800">Tab</span>
+                back to results
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] dark:border-gray-700 dark:bg-gray-800">Up/Down</span>
+                navigate
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] dark:border-gray-700 dark:bg-gray-800">Enter</span>
+                select
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] dark:border-gray-700 dark:bg-gray-800">Tab</span>
+                actions
+              </span>
+            </>
+          )}
           <span className="inline-flex items-center gap-1.5">
             <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] dark:border-gray-700 dark:bg-gray-800">Esc</span>
-            close
+            {isActionMode ? "back" : hasQuery ? "clear search" : "close"}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] dark:border-gray-700 dark:bg-gray-800">Cmd/Ctrl+K</span>
+            close now
           </span>
           {selectionNote && <span className="text-brand-500 dark:text-brand-400">{selectionNote}</span>}
         </div>

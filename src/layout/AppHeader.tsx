@@ -60,6 +60,7 @@ const AppHeader: React.FC = () => {
               inputRef.current?.focus();
             });
           } else {
+            setSearchValue("");
             setIsSearchFocused(false);
             window.requestAnimationFrame(() => {
               inputRef.current?.blur();
@@ -68,11 +69,6 @@ const AppHeader: React.FC = () => {
 
           return next;
         });
-      }
-
-      if (event.key === "Escape") {
-        setCommandPaletteOpen(false);
-        setIsSearchFocused(false);
       }
     };
 
@@ -259,6 +255,12 @@ const AppHeader: React.FC = () => {
                 {isCommandPaletteOpen && (
                   <CommandPalette
                     query={searchValue}
+                    onClearQuery={() => {
+                      setSearchValue("");
+                      window.requestAnimationFrame(() => {
+                        inputRef.current?.focus();
+                      });
+                    }}
                     onClose={() => {
                       setCommandPaletteOpen(false);
                       setIsSearchFocused(false);

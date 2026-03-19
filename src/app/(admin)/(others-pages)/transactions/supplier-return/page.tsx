@@ -12,6 +12,7 @@ import {
 import DatePicker from "@/components/form/date-picker";
 import Button from "@/components/ui/button/Button";
 import { ApiError } from "@/lib/api";
+import { getProductStock } from "@/lib/products";
 import {
   ApiTransaction,
   ApiTransactionLine,
@@ -91,10 +92,12 @@ export default function SupplierReturnPage() {
   const [purchaseDetail, setPurchaseDetail] = useState<ApiTransaction | null>(null);
   const [returnableLines, setReturnableLines] = useState<ReturnableLine[]>([]);
   const [quantities, setQuantities] = useState<QuantitiesState>({});
+  const [inHandByVariant, setInHandByVariant] = useState<Record<string, number>>({});
 
   const [loading, setLoading] = useState(true);
   const [purchasesLoading, setPurchasesLoading] = useState(false);
   const [linesLoading, setLinesLoading] = useState(false);
+  const [stockLoading, setStockLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -165,6 +168,7 @@ export default function SupplierReturnPage() {
       setPurchaseDetail(null);
       setReturnableLines([]);
       setQuantities({});
+      setInHandByVariant({});
       return;
     }
 
@@ -190,6 +194,7 @@ export default function SupplierReturnPage() {
         setPurchaseDetail(null);
         setReturnableLines([]);
         setQuantities({});
+        setInHandByVariant({});
       } catch (err) {
         if (cancelled) return;
         const apiErr = err as ApiError;
@@ -215,6 +220,7 @@ export default function SupplierReturnPage() {
       setPurchaseDetail(null);
       setReturnableLines([]);
       setQuantities({});
+      setInHandByVariant({});
       return;
     }
 
@@ -230,21 +236,43 @@ export default function SupplierReturnPage() {
           getTransactionReturnableLines(purchaseId),
         ]);
 
+        const productIds = Array.from(
+          new Set(
+            (detail.transactionLines ?? [])
+              .map((line) => line.variant?.productId)
+              .filter((productId): productId is string => Boolean(productId))
+          )
+        );
+
+        setStockLoading(true);
+        let stockByVariant: Record<string, number> = {};
+        if (productIds.length > 0) {
+          const stocks = await Promise.all(productIds.map((productId) => getProductStock(productId)));
+          stocks.forEach((stock) => {
+            stock.variants.forEach((variant) => {
+              stockByVariant[variant.variantId] = variant.currentStock;
+            });
+          });
+        }
+
         if (cancelled) return;
 
         setSelectedPurchase(purchase);
         setPurchaseDetail(detail);
         setReturnableLines(returnable.lines);
         setQuantities({});
+        setInHandByVariant(stockByVariant);
       } catch (err) {
         if (cancelled) return;
         const apiErr = err as ApiError;
         setPageError(apiErr.message ?? "Failed to load purchase lines.");
         setPurchaseDetail(null);
         setReturnableLines([]);
+        setInHandByVariant({});
       } finally {
         if (!cancelled) {
           setLinesLoading(false);
+          setStockLoading(false);
         }
       }
     };
@@ -299,6 +327,60 @@ export default function SupplierReturnPage() {
     [supplierId, suppliers]
   );
 
+  const lineVariantMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    (purchaseDetail?.transactionLines ?? []).forEach((line) => {
+      if (line.variantId) {
+        map[line.id] = line.variantId;
+      }
+    });
+    return map;
+  }, [purchaseDetail]);
+
+  const selectedQtyByVariant = useMemo(() => {
+    const totals: Record<string, number> = {};
+    returnableLines.forEach((line) => {
+      const qty = Math.max(0, quantities[line.lineId] ?? 0);
+      if (qty <= 0) return;
+      const variantId = lineVariantMap[line.lineId];
+      if (!variantId) return;
+      totals[variantId] = (totals[variantId] ?? 0) + qty;
+    });
+    return totals;
+  }, [lineVariantMap, quantities, returnableLines]);
+
+  const validateStepOne = () => {
+    const hasInvalid = returnableLines.some((line) => {
+      const qty = quantities[line.lineId] ?? 0;
+      return qty < 0 || qty > line.returnableQty;
+    });
+
+    if (hasInvalid) {
+      return "Return quantity cannot exceed the available returnable quantity.";
+    }
+
+    if (stockLoading) {
+      return "Please wait. In-hand stock is still loading.";
+    }
+
+    for (const [variantId, selectedQty] of Object.entries(selectedQtyByVariant)) {
+      const currentStock = inHandByVariant[variantId];
+      if (currentStock === undefined) {
+        return "Unable to validate in-hand stock for one or more lines. Please reload the source purchase.";
+      }
+
+      if (selectedQty > currentStock) {
+        const sampleLine = returnableLines.find((line) => lineVariantMap[line.lineId] === variantId);
+        const lineLabel = sampleLine
+          ? `${sampleLine.productName} (${sampleLine.variantSize})`
+          : "selected item";
+        return `Return quantity for ${lineLabel} exceeds in-hand stock. In hand: ${currentStock}.`;
+      }
+    }
+
+    return null;
+  };
+
   const selectSupplier = (supplier: ApiSupplier) => {
     setSupplierId(supplier.id);
     setSupplierQuery(supplier.name);
@@ -335,13 +417,9 @@ export default function SupplierReturnPage() {
       return;
     }
 
-    const hasInvalid = returnableLines.some((line) => {
-      const qty = quantities[line.lineId] ?? 0;
-      return qty < 0 || qty > line.returnableQty;
-    });
-
-    if (hasInvalid) {
-      setValidationError("Return quantity cannot exceed the available returnable quantity.");
+    const stepOneError = validateStepOne();
+    if (stepOneError) {
+      setValidationError(stepOneError);
       return;
     }
 
@@ -365,6 +443,13 @@ export default function SupplierReturnPage() {
     setValidationError(null);
 
     try {
+      const stepOneError = validateStepOne();
+      if (stepOneError) {
+        setValidationError(stepOneError);
+        setStep("select");
+        return;
+      }
+
       const draft = await createSupplierReturnDraft({
         supplierId: selectedSupplier.id,
         transactionDate,
@@ -532,6 +617,7 @@ export default function SupplierReturnPage() {
                     <h3 className="text-base font-semibold text-gray-900 dark:text-white">Return Lines</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       Enter the quantity to return for each eligible purchase line.
+                      Max allowed is limited by both source returnable quantity and current in-hand stock.
                     </p>
                   </div>
                 </div>
@@ -548,42 +634,56 @@ export default function SupplierReturnPage() {
                   <p className="text-sm text-gray-500 dark:text-gray-400">No returnable lines available for this purchase.</p>
                 ) : (
                   <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-gray-800">
-                    <table className="min-w-[860px] divide-y divide-gray-200 dark:divide-gray-800">
+                    <table className="w-full table-auto divide-y divide-gray-200 dark:divide-gray-800">
                       <thead className="bg-gray-50 dark:bg-gray-900/40">
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Product</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Size</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Original Qty</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Already Returned</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Returnable Qty</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Return Qty</th>
+                          <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap">Original Qty</th>
+                          <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap">In-Hand Stock</th>
+                          <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap">Return Qty</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
                         {returnableLines.map((line) => {
                           const currentQty = quantities[line.lineId] ?? 0;
-                          const invalid = currentQty > line.returnableQty;
+                          const variantId = lineVariantMap[line.lineId];
+                          const inHand = variantId ? inHandByVariant[variantId] : undefined;
+                          const selectedForVariant = variantId ? selectedQtyByVariant[variantId] ?? 0 : 0;
+                          const exceedsReturnable = currentQty > line.returnableQty;
+                          const exceedsInHand =
+                            variantId && inHand !== undefined ? selectedForVariant > inHand : false;
+                          const invalid = exceedsReturnable || exceedsInHand;
                           return (
                             <tr key={line.lineId}>
                               <td className="px-4 py-4 text-sm font-medium text-gray-800 dark:text-white/90">
                                 {line.productName}
                               </td>
                               <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-300">{line.variantSize}</td>
-                              <td className="px-4 py-4 text-right text-sm text-gray-600 dark:text-gray-300">{line.originalQty}</td>
-                              <td className="px-4 py-4 text-right text-sm text-gray-600 dark:text-gray-300">{line.alreadyReturned}</td>
-                              <td className="px-4 py-4 text-right text-sm text-gray-600 dark:text-gray-300">{line.returnableQty}</td>
-                              <td className="px-4 py-4 text-right">
-                                <div className="ml-auto w-28">
+                              <td className="px-3 py-4 text-right text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{line.originalQty}</td>
+                              <td className="px-3 py-4 text-right text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                                {stockLoading ? "Loading..." : inHand ?? "—"}
+                              </td>
+                              <td className="px-3 py-4 text-right">
+                                <div className="ml-auto w-20">
                                   <input
-                                    type="number"
-                                    min={0}
-                                    max={line.returnableQty}
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                     value={currentQty}
-                                    onChange={(e) => updateQuantity(line.lineId, Number(e.target.value || 0))}
+                                    onChange={(e) => {
+                                      const raw = e.target.value.replace(/[^0-9]/g, "");
+                                      updateQuantity(line.lineId, Number(raw || 0));
+                                    }}
                                     className={`${inputClass} text-right ${
                                       invalid ? "border-warning-300 focus:border-warning-500 focus:ring-warning-500/20" : ""
                                     }`}
                                   />
+                                  {invalid && (
+                                    <p className="mt-1 text-left text-xs text-warning-600 dark:text-warning-400">
+                                      Max {Math.min(line.returnableQty, inHand ?? line.returnableQty)}
+                                    </p>
+                                  )}
                                 </div>
                               </td>
                             </tr>

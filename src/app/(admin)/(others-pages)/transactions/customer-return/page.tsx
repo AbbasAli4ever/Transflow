@@ -14,6 +14,7 @@ import Button from "@/components/ui/button/Button";
 import { ApiError } from "@/lib/api";
 import { ApiCustomer, listCustomers } from "@/lib/customers";
 import { ApiPaymentAccount, listPaymentAccounts } from "@/lib/paymentAccounts";
+import { getProductStock } from "@/lib/products";
 import {
   ApiTransaction,
   ApiTransactionLine,
@@ -89,11 +90,13 @@ export default function CustomerReturnPage() {
   const [saleDetail, setSaleDetail] = useState<ApiTransaction | null>(null);
   const [returnableLines, setReturnableLines] = useState<ReturnableLine[]>([]);
   const [quantities, setQuantities] = useState<QuantitiesState>({});
+  const [inHandByVariant, setInHandByVariant] = useState<Record<string, number>>({});
   const [accounts, setAccounts] = useState<ApiPaymentAccount[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [salesLoading, setSalesLoading] = useState(false);
   const [linesLoading, setLinesLoading] = useState(false);
+  const [stockLoading, setStockLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -165,6 +168,7 @@ export default function CustomerReturnPage() {
       setSaleDetail(null);
       setReturnableLines([]);
       setQuantities({});
+      setInHandByVariant({});
       return;
     }
 
@@ -190,6 +194,7 @@ export default function CustomerReturnPage() {
         setSaleDetail(null);
         setReturnableLines([]);
         setQuantities({});
+        setInHandByVariant({});
       } catch (err) {
         if (!cancelled) {
           const apiErr = err as ApiError;
@@ -214,6 +219,7 @@ export default function CustomerReturnPage() {
       setSaleDetail(null);
       setReturnableLines([]);
       setQuantities({});
+      setInHandByVariant({});
       return;
     }
 
@@ -228,20 +234,45 @@ export default function CustomerReturnPage() {
           getTransaction(saleId),
           getTransactionReturnableLines(saleId),
         ]);
+
+        const productIds = Array.from(
+          new Set(
+            (detail.transactionLines ?? [])
+              .map((line) => line.variant?.productId)
+              .filter((productId): productId is string => Boolean(productId))
+          )
+        );
+
+        setStockLoading(true);
+        let stockByVariant: Record<string, number> = {};
+        if (productIds.length > 0) {
+          const stocks = await Promise.all(productIds.map((productId) => getProductStock(productId)));
+          stocks.forEach((stock) => {
+            stock.variants.forEach((variant) => {
+              stockByVariant[variant.variantId] = variant.currentStock;
+            });
+          });
+        }
+
         if (cancelled) return;
         setSelectedSale(sale);
         setSaleDetail(detail);
         setReturnableLines(returnable.lines);
         setQuantities({});
+        setInHandByVariant(stockByVariant);
       } catch (err) {
         if (!cancelled) {
           const apiErr = err as ApiError;
           setPageError(apiErr.message ?? "Failed to load sale lines.");
           setSaleDetail(null);
           setReturnableLines([]);
+          setInHandByVariant({});
         }
       } finally {
-        if (!cancelled) setLinesLoading(false);
+        if (!cancelled) {
+          setLinesLoading(false);
+          setStockLoading(false);
+        }
       }
     };
 
@@ -286,6 +317,16 @@ export default function CustomerReturnPage() {
     () => customers.find((customer) => customer.id === customerId) ?? null,
     [customerId, customers]
   );
+
+  const lineVariantMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    (saleDetail?.transactionLines ?? []).forEach((line) => {
+      if (line.variantId) {
+        map[line.id] = line.variantId;
+      }
+    });
+    return map;
+  }, [saleDetail]);
 
   const selectCustomer = (customer: ApiCustomer) => {
     setCustomerId(customer.id);
@@ -526,6 +567,7 @@ export default function CustomerReturnPage() {
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white">Return Lines</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     Enter the quantity to return for each eligible sale line.
+                    In-hand stock is shown for quick visibility.
                   </p>
                 </div>
 
@@ -541,38 +583,48 @@ export default function CustomerReturnPage() {
                   <p className="text-sm text-gray-500 dark:text-gray-400">No returnable lines available for this sale.</p>
                 ) : (
                   <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-gray-800">
-                    <table className="min-w-[860px] divide-y divide-gray-200 dark:divide-gray-800">
+                    <table className="w-full table-auto divide-y divide-gray-200 dark:divide-gray-800">
                       <thead className="bg-gray-50 dark:bg-gray-900/40">
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Product</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Size</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Original Qty</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Already Returned</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Returnable Qty</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Return Qty</th>
+                          <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap">Original Qty</th>
+                          <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap">In-Hand Stock</th>
+                          <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap">Return Qty</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
                         {returnableLines.map((line) => {
                           const currentQty = quantities[line.lineId] ?? 0;
                           const invalid = currentQty > line.returnableQty;
+                          const variantId = lineVariantMap[line.lineId];
+                          const inHand = variantId ? inHandByVariant[variantId] : undefined;
                           return (
                             <tr key={line.lineId}>
                               <td className="px-4 py-4 text-sm font-medium text-gray-800 dark:text-white/90">{line.productName}</td>
                               <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-300">{line.variantSize}</td>
-                              <td className="px-4 py-4 text-right text-sm text-gray-600 dark:text-gray-300">{line.originalQty}</td>
-                              <td className="px-4 py-4 text-right text-sm text-gray-600 dark:text-gray-300">{line.alreadyReturned}</td>
-                              <td className="px-4 py-4 text-right text-sm text-gray-600 dark:text-gray-300">{line.returnableQty}</td>
-                              <td className="px-4 py-4 text-right">
-                                <div className="ml-auto w-28">
+                              <td className="px-3 py-4 text-right text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{line.originalQty}</td>
+                              <td className="px-3 py-4 text-right text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                                {stockLoading ? "Loading..." : inHand ?? "—"}
+                              </td>
+                              <td className="px-3 py-4 text-right">
+                                <div className="ml-auto w-20">
                                   <input
-                                    type="number"
-                                    min={0}
-                                    max={line.returnableQty}
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                     value={currentQty}
-                                    onChange={(e) => updateQuantity(line.lineId, Number(e.target.value || 0))}
+                                    onChange={(e) => {
+                                      const raw = e.target.value.replace(/[^0-9]/g, "");
+                                      updateQuantity(line.lineId, Number(raw || 0));
+                                    }}
                                     className={`${inputClass} text-right ${invalid ? "border-warning-300 focus:border-warning-500 focus:ring-warning-500/20" : ""}`}
                                   />
+                                  {invalid && (
+                                    <p className="mt-1 text-left text-xs text-warning-600 dark:text-warning-400">
+                                      Max {line.returnableQty}
+                                    </p>
+                                  )}
                                 </div>
                               </td>
                             </tr>

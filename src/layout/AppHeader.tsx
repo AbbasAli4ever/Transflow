@@ -264,6 +264,7 @@ const AppHeader: React.FC = () => {
                     onClose={() => {
                       setCommandPaletteOpen(false);
                       setIsSearchFocused(false);
+                      setSearchValue("");
                       window.requestAnimationFrame(() => {
                         inputRef.current?.blur();
                       });

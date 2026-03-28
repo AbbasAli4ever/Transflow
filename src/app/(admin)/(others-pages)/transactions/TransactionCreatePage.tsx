@@ -39,7 +39,7 @@ const numberInputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500";
 
 const panelClass =
-  "rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03]";
+  "rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-700 dark:bg-gray-900";
 
 const DELIVERY_OPTIONS = [
   { value: "", label: "Select delivery type" },
@@ -389,6 +389,12 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
               currentBalance: supplier.currentBalance ?? 0,
             }))
           );
+          const prefillId = sessionStorage.getItem("prefillSupplierId");
+          if (prefillId) {
+            const match = supplierData.find((s) => s.id === prefillId);
+            if (match) { setPartyId(match.id); setPartyQuery(match.name); }
+            sessionStorage.removeItem("prefillSupplierId");
+          }
         } else {
           const customerData = partyRes.data as ApiCustomer[];
           setCustomers(customerData);
@@ -399,6 +405,12 @@ export default function TransactionCreatePage({ mode }: { mode: ScreenMode }) {
               currentBalance: customer.currentBalance ?? 0,
             }))
           );
+          const prefillId = sessionStorage.getItem("prefillCustomerId");
+          if (prefillId) {
+            const match = customerData.find((c) => c.id === prefillId);
+            if (match) { setPartyId(match.id); setPartyQuery(match.name); }
+            sessionStorage.removeItem("prefillCustomerId");
+          }
         }
 
         const sortedAccounts = [...accountRes.data].sort(

@@ -42,3 +42,6 @@ next-env.d.ts
 
 .vscode/
 testsprite_tests/
+
+
+.env

@@ -29,7 +29,7 @@ const inputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500";
 
 const panelClass =
-  "rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03]";
+  "rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-700 dark:bg-gray-900";
 
 type AllocationState = Record<string, number>;
 
@@ -120,6 +120,12 @@ export default function CustomerPaymentPage() {
         );
         setCustomers(customerRes.data);
         setAccounts(sortedAccounts);
+        const prefillId = sessionStorage.getItem("prefillCustomerId");
+        if (prefillId) {
+          const match = customerRes.data.find((c) => c.id === prefillId);
+          if (match) { setCustomerId(match.id); setCustomerQuery(match.name); }
+          sessionStorage.removeItem("prefillCustomerId");
+        }
         setPaymentAccountId(sortedAccounts[0]?.id ?? "");
       } catch (err) {
         if (cancelled) return;

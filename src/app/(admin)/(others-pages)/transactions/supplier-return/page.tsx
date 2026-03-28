@@ -31,7 +31,7 @@ const inputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500";
 
 const panelClass =
-  "rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03]";
+  "rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-700 dark:bg-gray-900";
 
 type Step = "select" | "review";
 type QuantitiesState = Record<string, number>;
@@ -140,6 +140,12 @@ export default function SupplierReturnPage() {
         });
         if (!cancelled) {
           setSuppliers(result.data);
+          const prefillId = sessionStorage.getItem("prefillSupplierId");
+          if (prefillId) {
+            const match = result.data.find((s) => s.id === prefillId);
+            if (match) { setSupplierId(match.id); setSupplierQuery(match.name); }
+            sessionStorage.removeItem("prefillSupplierId");
+          }
         }
       } catch (err) {
         if (!cancelled) {

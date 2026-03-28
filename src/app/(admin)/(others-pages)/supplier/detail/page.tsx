@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import SupplierDetailShell from "./SupplierDetailShell";
 
 export default function Page() {
-  return <SupplierDetailShell />;
+  return (
+    <Suspense>
+      <SupplierDetailShell />
+    </Suspense>
+  );
 }
